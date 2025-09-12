@@ -1,0 +1,102 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./poetry.lock:/app/poetry.lock
+      - ./alembic.ini:/app/alembic.ini
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./secrets:/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+    # Override the Dockerfile's CMD for development to match the volume mount structure
+    command: sh -c "cd /app && poetry install --no-root && PYTHONPATH=/app poetry run python -m uvicorn main:app --host 0.0.0.0 --port 3001 --reload"
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./poetry.lock:/app/poetry.lock
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./secrets:/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+    # Override the Dockerfile's CMD for development to match the volume mount structure
+    command: sh -c "cd /app && poetry install --no-root && PYTHONPATH=/app poetry run python -m celery -A workers.celery_app:celery_app worker --loglevel=info --concurrency=4"
+
+  db:
+    image: postgres:15-alpine
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  flower:
+    image: mher/flower
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    command:
+      - "celery"
+      - "flower"
+      - "--broker=${CELERY_BROKER_URL}"
+      - "--result_backend=${CELERY_RESULT_BACKEND}"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

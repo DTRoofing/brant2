@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(venv\\Scripts\\pip list:*)",
+      "Bash(venv\\\\Scripts\\\\python:*)",
+      "Bash(venv\\\\Scripts\\\\python.exe -m py_compile:*)",
+      "Bash(./venv/Scripts/python:*)",
+      "Bash(find:*)",
+      "Bash(docker-compose:*)",
+      "Bash(pip install:*)",
+      "Bash(poetry lock:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(mkdir:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

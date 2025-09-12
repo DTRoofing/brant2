@@ -1,0 +1,26 @@
+rule "claude-integration-patterns" {
+  description = "Anthropic Claude integration best practices"
+  when = "integrating with Anthropic Claude API"
+  then = "Use these patterns:
+- Structure prompts for consistent outputs
+- Include measurement validation
+- Handle rate limits with backoff
+- Cache expensive analysis results
+- Parse structured responses safely
+
+Example:
+class ClaudeService:
+    async def analyze_measurements(self, text: str) -> Dict:
+        prompt = f'''
+        Analyze this blueprint text for roof measurements:
+        {text}
+ECHO is off.
+        Return JSON with: area_sf, confidence, coordinates
+        '''
+ECHO is off.
+        response = await self.client.messages.create(
+            model='claude-3-sonnet-20240229',
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        return self._parse_response(response)"
+}

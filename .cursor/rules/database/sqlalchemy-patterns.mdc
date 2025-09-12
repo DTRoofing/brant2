@@ -1,0 +1,29 @@
+rule "sqlalchemy-patterns" {
+  description = "SQLAlchemy best practices and patterns"
+  when = "working with database models and queries"
+  then = "Follow these patterns:
+- Use async sessions correctly
+- Implement eager loading for related objects
+- Create repository patterns for data access
+- Use proper transaction management
+- Add database indexes for performance
+
+Example:
+# Optimized query with eager loading
+stmt = (
+    select(Project)
+    .options(selectinload(Project.measurements))
+    .where(Project.id == project_id)
+)
+
+# Proper session management
+@asynccontextmanager
+async def get_db_session():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise"
+}

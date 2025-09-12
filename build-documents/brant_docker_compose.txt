@@ -1,0 +1,114 @@
+# =============================================================================
+# BRANT ROOFING SYSTEM - DOCKER COMPOSE CONFIGURATION
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # API SERVICE - FastAPI Backend
+  # =============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+      args:
+        - ENVIRONMENT=development
+    ports:
+      - "3001:3001"
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://brant_user:brant_secure_2025@db:5432/brant_roofing_db
+      
+      # Redis/Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - REDIS_CACHE_URL=redis://redis:6379/2
+      
+      # Google Cloud (using your existing setup)
+      - GOOGLE_CLOUD_PROJECT_ID=brant-roofing-system-2025
+      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/brant-roofing-system-2025-a5b8920b36d5.json
+      - DOCUMENT_AI_PROCESSOR_ID=dc22888af5489eae
+      - DOCUMENT_AI_LOCATION=us
+      - GOOGLE_CLOUD_STORAGE_BUCKET=brant-roofing-documents
+      - GOOGLE_STUDIO_API_KEY=${GOOGLE_STUDIO_API_KEY}
+      
+      # AI Services
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ENABLE_DOCUMENT_AI=true
+      - ENABLE_CLAUDE_ANALYSIS=true
+      
+      # Application
+      - PORT=3001
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
+      
+      # Security
+      - JWT_SECRET=${JWT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - SECRET_KEY=${SECRET_KEY}
+      - API_KEY=${API_KEY}
+      
+      # File Processing
+      - MAX_FILE_SIZE=104857600
+      - UPLOAD_PATH=/app/uploads
+      - PROCESSED_PATH=/app/processed
+      - OCR_CONFIDENCE_THRESHOLD=0.70
+      
+    volumes:
+      # Mount your service account key
+      - ./secrets:/secrets:ro
+      # Development hot reload
+      - ./app:/app:cached
+      # File storage
+      - ./uploads:/app/uploads
+      - ./processed:/app/processed
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - brant-network
+
+  # =============================================================================
+  # CELERY WORKER - Background Processing
+  # =============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+      args:
+        - ENVIRONMENT=development
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://brant_user:brant_secure_2025@db:5432/brant_roofing_db
+      
+      # Redis/Celery
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CELERY_WORKER_CONCURRENCY=4
+      - CELERY_TASK_SOFT_TIME_LIMIT=900
+      - CELERY_TASK_TIME_LIMIT=1800
+      
+      # Google Cloud
+      - GOOGLE_CLOUD_PROJECT_ID=brant-roofing-system-2025
+      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/brant-roofing-system-2025-a5b8920b36d5.json
+      - DOCUMENT_AI_PROCESSOR_ID=dc22888af5489eae
+      - DOCUMENT_AI_LOCATION=us
+      - GOOGLE_CLOUD_STORAGE_BUCKET=brant-roofing-documents
+      - GOOGLE_STUDIO_API_KEY=${GOOGLE_STUDIO_API_KEY}
+      
+      # AI Services
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      -

@@ -1,0 +1,23 @@
+rule "unit-testing-patterns" {
+  description = "Unit testing for domain logic"
+  when = "writing unit tests for business logic"
+  then = "Create comprehensive unit tests:
+- Test all business logic methods
+- Use descriptive test names
+- Follow AAA pattern (Arrange, Act, Assert)
+- Test edge cases and error conditions
+- Use pytest fixtures for test data
+
+Example:
+class TestRoofingProject:
+    def test_estimate_cost_with_valid_measurements(self):
+        # Arrange
+        measurements = [Measurement(area_sf=Decimal('1000'), confidence=0.9)]
+        project = RoofingProject(measurements=measurements)
+ECHO is off.
+        # Act
+        cost = project.estimate_cost(Decimal('5.50'))
+ECHO is off.
+        # Assert
+        assert cost == Decimal('8250.00')"
+}

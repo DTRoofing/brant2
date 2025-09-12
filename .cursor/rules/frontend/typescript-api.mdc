@@ -1,0 +1,27 @@
+rule "typescript-api-client" {
+  description = "Type-safe API client implementation"
+  when = "creating frontend API integration"
+  then = "Use these patterns:
+- Generate TypeScript types from OpenAPI
+- Create type-safe API client classes
+- Implement proper error handling
+- Use correlation IDs for tracing
+- Handle authentication tokens
+
+Example:
+interface DocumentResponse {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  confidence_score: number;
+}
+
+class DocumentsAPI {
+  static async upload(file: File): Promise<DocumentResponse> {
+    const response = await apiClient.post<DocumentResponse>(
+      '/documents/upload',
+      formData
+    );
+    return response.data;
+  }
+}"
+}

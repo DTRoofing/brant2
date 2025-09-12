@@ -1,0 +1,25 @@
+rule "database-performance" {
+  description = "Database performance optimization"
+  when = "optimizing database queries and connections"
+  then = "Apply these optimizations:
+- Use connection pooling with proper sizing
+- Implement query result caching
+- Use database indexes strategically
+- Optimize N+1 query problems
+- Monitor query performance
+
+Example:
+# Connection pooling configuration
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,
+    pool_recycle=3600
+)
+
+# Query optimization with caching
+@cached(ttl=3600)
+async def get_project_measurements(project_id: str):
+    # Cached expensive query"
+}

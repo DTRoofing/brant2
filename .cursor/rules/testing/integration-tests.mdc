@@ -1,0 +1,26 @@
+rule "integration-testing" {
+  description = "Integration testing for AI services and database"
+  when = "testing integration between components"
+  then = "Create integration tests that:
+- Test AI service integrations with mocks
+- Test database operations with test database
+- Test complete workflows end-to-end
+- Use proper setup and teardown
+- Mock external dependencies appropriately
+
+Example:
+@pytest.mark.integration
+async def test_document_processing_pipeline(
+    mock_document_ai, db_session
+):
+    # Setup test document
+    document = Document(filename='test.pdf')
+    db_session.add(document)
+    await db_session.commit()
+ECHO is off.
+    # Process document
+    result = await process_document_task(str(document.id))
+ECHO is off.
+    # Verify results
+    assert result['status'] == 'completed'"
+}

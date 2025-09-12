@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      target: base
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+      - "9229:9229" # Debug port
+    command: npm run dev
+
+  database:
+    ports:
+      - "5433:5432" # Different port for development to avoid conflicts
+    environment:
+      - POSTGRES_PASSWORD=postgres # Simple password for development
+
+  # Remove nginx in development
+  nginx:
+    profiles:
+      - disabled

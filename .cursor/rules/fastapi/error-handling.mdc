@@ -1,0 +1,26 @@
+rule "error-handling-patterns" {
+  description = "Implement comprehensive error handling"
+  when = "handling errors or exceptions"
+  then = "Use custom exception hierarchy:
+- Create domain-specific exceptions
+- Map business exceptions to HTTP status codes
+- Include error context and correlation IDs
+- Log errors with structured data
+- Provide meaningful error messages
+
+Example:
+class RoofingSystemException(Exception):
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        self.message = message
+        self.details = details or {}
+
+def map_exception_to_http(exc: Exception) -> HTTPException:
+    mapping = {
+        ValidationError: status.HTTP_400_BAD_REQUEST,
+        ProcessingError: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    }
+    return HTTPException(
+        status_code=mapping.get(type(exc), 500),
+        detail={'error_type': type(exc).__name__, 'message': str(exc)}
+    )"
+}

@@ -1,0 +1,26 @@
+rule "react-query-patterns" {
+  description = "React Query integration for server state"
+  when = "managing server state in React components"
+  then = "Use React Query patterns:
+- Create custom hooks for API operations
+- Implement proper caching strategies
+- Handle loading and error states
+- Use optimistic updates where appropriate
+- Implement real-time updates for processing status
+
+Example:
+export function useDocumentUpload() {
+  const queryClient = useQueryClient();
+ECHO is off.
+  return useMutation({
+    mutationFn: DocumentsAPI.upload,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['documents']);
+      toast.success(`Document uploaded successfully`);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    }
+  });
+}"
+}

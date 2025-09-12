@@ -1,0 +1,39 @@
+rule "fastapi-endpoint-structure" {
+  description = "Standardize FastAPI endpoint patterns"
+  when = "creating API endpoints"
+  then = "Use consistent patterns:
+- Include response_model in decorator
+- Use Depends() for dependency injection
+- Include proper HTTP status codes
+- Add comprehensive docstrings
+- Use appropriate HTTP methods
+
+Example:
+@router.post('/upload', response_model=DocumentResponse)
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+) -> DocumentResponse:
+    '''Upload a PDF blueprint for processing.'''
+    # Implementation"
+}
+
+rule "pydantic-validation" {
+  description = "Use comprehensive Pydantic validation"
+  when = "creating request/response models"
+  then = "Include proper validation:
+- Field descriptions for API documentation
+- Validation constraints (ge, le, regex)
+- Custom validators for business rules
+- from_attributes = True for SQLAlchemy
+- JSON encoders for special types
+
+Example:
+class DocumentResponse(BaseModel):
+    id: str = Field(..., description='Document UUID')
+    status: Literal['pending', 'processing', 'completed', 'failed']
+    confidence_score: float = Field(..., ge=0, le=1)
+ECHO is off.
+    class Config:
+        from_attributes = True"
+}

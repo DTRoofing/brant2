@@ -1,0 +1,21 @@
+rule "document-ai-integration" {
+  description = "Google Document AI integration patterns"
+  when = "integrating with Google Document AI"
+  then = "Follow these patterns:
+- Handle quota limits gracefully
+- Include confidence scores in all responses
+- Store raw responses for debugging
+- Implement proper retry logic
+- Validate extracted entities
+
+Example:
+class DocumentAIService:
+    async def process_document(self, file_path: str):
+        try:
+            result = self.client.process_document(request)
+            return self._extract_structured_data(result)
+        except Exception as e:
+            if 'quota' in str(e).lower():
+                raise ServiceUnavailableError('Quota exceeded')
+            raise ProcessingError(f'Processing failed: {e}')"
+}

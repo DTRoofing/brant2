@@ -1,0 +1,26 @@
+rule "project-structure" {
+  description = "Maintain proper project structure for Brant Roofing System"
+  when = "organizing code files and directories"
+  then = "Follow this structure:
+- app/ for Python FastAPI backend
+- app/domain/ for business entities
+- app/models/ for SQLAlchemy models  
+- app/schemas/ for Pydantic models
+- app/api/v1/endpoints/ for API endpoints
+- app/services/ for AI service integrations
+- app/workers/ for Celery background tasks
+- frontend/ for Next.js TypeScript frontend
+- tests/ for all test files"
+}
+
+rule "naming-conventions" {
+  description = "Use consistent naming conventions"
+  when = "naming files, functions, classes, or variables"
+  then = "Follow these conventions:
+- snake_case for Python functions and variables
+- PascalCase for Python classes
+- camelCase for TypeScript/JavaScript
+- kebab-case for file names and URLs
+- UPPER_CASE for constants
+- Descriptive names that reflect business domain"
+}

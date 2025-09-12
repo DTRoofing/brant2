@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id             String      @id @default(cuid())
+  name           String
+  email          String?     @unique
+  phone          String?
+  address        String?
+  projectAddress String?
+  estimates      Estimate[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Estimate {
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status         EstimateStatus  @default(DRAFT)
+  totalCost      Decimal?        @db.Decimal(10, 2)
+  confidence     Float           @default(0)
+  summary        String?         @db.Text  // JSON string with AI processing results
+  pdfUrl         String?
+  projectAddress String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  
+  measurements Measurement[]
+  lineItems    LineItem[]
+  documents    Document[]
+  auditTrail   AuditTrail[]
+}
+
+model Measurement {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  area       String
+  squareFeet Float
+  confidence Float    @default(0.5)
+  source     String   // "document_ai", "vision_api", "claude_ai", etc.
+  scale      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+model LineItem {
+  id          String           @id @default(cuid())
+  estimateId  String
+  estimate    Estimate         @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  category    LineItemCategory
+  description String
+  quantity    Float
+  unit        String
+  unitPrice   Decimal?         @db.Decimal(10, 2)
+  totalPrice  Decimal?         @db.Decimal(10, 2)
+  source      String
+  confidence  Float?           @default(0.5)
+  createdAt   DateTime         @default(now())
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  fileName   String
+  fileUrl    String
+  fileSize   Int
+  mimeType   String
+  uploadedAt DateTime @default(now())
+}
+
+model AuditTrail {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  action     String
+  details    String   @db.Text
+  source     String
+  confidence Float    @default(1.0)
+  timestamp  DateTime @default(now())
+}
+
+enum EstimateStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum LineItemCategory {
+  MATERIAL
+  LABOR
+  EQUIPMENT
+  PERMITS
+  OVERHEAD
+  OTHER
+}

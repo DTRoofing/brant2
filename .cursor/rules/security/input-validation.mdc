@@ -1,0 +1,23 @@
+rule "input-validation" {
+  description = "Comprehensive input validation and sanitization"
+  when = "handling user inputs or file uploads"
+  then = "Apply security validation:
+- Validate file types using content detection
+- Sanitize filenames to prevent path traversal
+- Implement rate limiting on endpoints
+- Validate file sizes before processing
+- Use Pydantic validators for data validation
+
+Example:
+class SecurityValidator:
+    @classmethod
+    def validate_upload(cls, file: UploadFile) -> None:
+        cls._validate_file_type(file)
+        cls._validate_file_size(file)
+        cls._validate_filename(file.filename)
+ECHO is off.
+    @classmethod
+    def _validate_file_type(cls, file: UploadFile) -> None:
+        if not file.content_type == 'application/pdf':
+            raise ValidationError('Only PDF files allowed')"
+}

@@ -1,0 +1,26 @@
+rule "file-security" {
+  description = "Secure file handling practices"
+  when = "processing uploaded files"
+  then = "Implement secure file handling:
+- Scan file content, not just extensions
+- Use secure temporary file storage
+- Implement virus scanning if possible
+- Limit file processing resources
+- Clean up temporary files properly
+
+Example:
+class SecureFileHandler:
+    @staticmethod
+    def validate_pdf_content(file_content: bytes) -> bool:
+        # Check PDF magic bytes
+        if not file_content.startswith(b'%PDF'):
+            raise ValidationError('Invalid PDF file')
+ECHO is off.
+        # Additional content validation
+        return True
+ECHO is off.
+    @staticmethod
+    def create_secure_temp_file() -> str:
+        temp_dir = tempfile.mkdtemp(prefix='roofing_')
+        return temp_dir"
+}
