@@ -14,7 +14,9 @@
       "Bash(curl:*)",
       "Bash(npm install)",
       "Bash(npm run dev:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(cd:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

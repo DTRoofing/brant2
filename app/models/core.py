@@ -38,6 +38,7 @@ class Document(Base):
     processing_status = Column(Enum(ProcessingStatus), default=ProcessingStatus.PENDING)
     processing_error = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     project = relationship("Project", back_populates="documents")

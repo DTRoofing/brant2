@@ -55,38 +55,42 @@ export function UploadZone() {
         // Import the API client
         const { apiClient } = await import('@/lib/api');
         
-        // Upload each file
-        const uploadedDocs = []
+        // Upload and process each file with the hybrid pipeline
+        const processedDocs = []
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
           setUploadProgress((i / files.length) * 100)
           
-          const result = await apiClient.uploadDocument(file);
-          console.log('Uploaded:', result);
-          console.log('Document will be processed with:');
-          console.log('- Google Document AI for text extraction');
-          console.log('- Google Cloud Storage for backup');
-          console.log('- Claude AI for measurement analysis');
+          console.log(`Processing ${file.name} with hybrid pipeline...`);
           
-          uploadedDocs.push(result);
+          // Upload and start pipeline processing
+          const result = await apiClient.uploadAndProcessDocument(file);
+          console.log('Pipeline started:', result);
+          
+          processedDocs.push({
+            ...result,
+            filename: file.name,
+            filesize: file.size
+          });
         }
         
-        // Store document IDs in localStorage for processing page
-        const existingDocs = JSON.parse(localStorage.getItem('uploadedDocuments') || '[]');
-        localStorage.setItem('uploadedDocuments', JSON.stringify([...existingDocs, ...uploadedDocs]));
+        // Store processed document info in localStorage
+        const existingDocs = JSON.parse(localStorage.getItem('processedDocuments') || '[]');
+        localStorage.setItem('processedDocuments', JSON.stringify([...existingDocs, ...processedDocs]));
         
         setUploadProgress(100)
         
         // Show success message
-        alert(`Successfully uploaded ${files.length} file(s). Google Document AI will now process them.`);
+        alert(`Successfully uploaded ${files.length} file(s). Hybrid pipeline processing started with computer vision and AI analysis.`);
         
-        // Navigate to processing page
+        // Navigate to processing page with document IDs
+        const documentIds = processedDocs.map(doc => doc.document_id).join(',');
         setTimeout(() => {
-          window.location.href = "/processing"
+          window.location.href = `/processing?documents=${documentIds}`
         }, 1000)
       } catch (error) {
         console.error('Upload failed:', error);
-        alert('Failed to upload files. Please try again.');
+        alert(`Failed to upload files: ${error.message}`);
       } finally {
         setUploading(false)
         setUploadProgress(0)
@@ -154,9 +158,9 @@ export function UploadZone() {
 
           <Button onClick={handleUpload} className="w-full" disabled={uploading}>
             {uploading ? (
-              <>Processing with Google Document AI... {uploadProgress.toFixed(0)}%</>
+              <>Starting Hybrid Pipeline... {uploadProgress.toFixed(0)}%</>
             ) : (
-              <>Process {files.length} Document{files.length !== 1 ? "s" : ""} with Google AI</>
+              <>Process {files.length} Document{files.length !== 1 ? "s" : ""} with Hybrid Pipeline</>
             )}
           </Button>
           {uploading && (

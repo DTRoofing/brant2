@@ -10,7 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Building2, Settings, LogOut, User, Bell } from "lucide-react"
+import { Building2, Settings, LogOut, User, Bell, Upload, Home, FileText } from "lucide-react"
+import Link from "next/link"
 
 export function DashboardHeader() {
   return (
@@ -27,6 +28,28 @@ export function DashboardHeader() {
               <p className="text-sm text-muted-foreground">Estimation Dashboard</p>
             </div>
           </div>
+
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center gap-2">
+            <Button variant="ghost" asChild>
+              <Link href="/dashboard">
+                <Home className="h-4 w-4 mr-2" />
+                Dashboard
+              </Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/upload">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload
+              </Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/estimate">
+                <FileText className="h-4 w-4 mr-2" />
+                Estimates
+              </Link>
+            </Button>
+          </nav>
 
           {/* User Menu */}
           <div className="flex items-center gap-4">

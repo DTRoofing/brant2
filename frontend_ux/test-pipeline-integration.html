@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .step.completed {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .step.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .step.processing {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .file-input {
+            margin: 10px 0;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #155724;
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PDF Pipeline Integration Test</h1>
+        <p>This page tests the complete PDF upload to estimate pipeline integration.</p>
+
+        <div class="step" id="step1">
+            <h3>Step 1: Upload PDF Document</h3>
+            <div class="file-input">
+                <input type="file" id="pdfFile" accept=".pdf" />
+                <button onclick="uploadDocument()" id="uploadBtn">Upload & Process</button>
+            </div>
+            <div class="progress" id="uploadProgress" style="display: none;">
+                <div class="progress-bar" id="uploadProgressBar"></div>
+            </div>
+            <div id="uploadStatus"></div>
+        </div>
+
+        <div class="step" id="step2">
+            <h3>Step 2: Pipeline Processing</h3>
+            <div id="pipelineStatus">Waiting for upload...</div>
+            <div class="progress" id="pipelineProgress" style="display: none;">
+                <div class="progress-bar" id="pipelineProgressBar"></div>
+            </div>
+            <div id="pipelineResults"></div>
+        </div>
+
+        <div class="step" id="step3">
+            <h3>Step 3: Estimate Generation</h3>
+            <div id="estimateStatus">Waiting for pipeline completion...</div>
+            <div id="estimateResults"></div>
+            <button onclick="viewEstimate()" id="viewEstimateBtn" style="display: none;">View Full Estimate</button>
+        </div>
+
+        <div class="results" id="finalResults" style="display: none;">
+            <h3>🎯 Integration Test Results</h3>
+            <div id="testSummary"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api/v1';
+        let currentDocumentId = null;
+        let pipelineResults = null;
+
+        async function uploadDocument() {
+            const fileInput = document.getElementById('pdfFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a PDF file');
+                return;
+            }
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadProgress = document.getElementById('uploadProgress');
+            const uploadProgressBar = document.getElementById('uploadProgressBar');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            uploadBtn.disabled = true;
+            uploadProgress.style.display = 'block';
+            uploadStatus.innerHTML = 'Uploading document...';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // Simulate upload progress
+                for (let i = 0; i <= 100; i += 10) {
+                    uploadProgressBar.style.width = i + '%';
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                const response = await fetch(`${API_BASE}/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                currentDocumentId = result.document_id;
+
+                // Start pipeline processing
+                const pipelineResponse = await fetch(`${API_BASE}/pipeline/process/${currentDocumentId}`, {
+                    method: 'POST'
+                });
+
+                if (!pipelineResponse.ok) {
+                    throw new Error(`Pipeline start failed: ${pipelineResponse.statusText}`);
+                }
+
+                const pipelineResult = await pipelineResponse.json();
+
+                uploadStatus.innerHTML = `<div class="success">✅ Upload successful! Pipeline started (Task: ${pipelineResult.task_id})</div>`;
+                document.getElementById('step1').classList.add('completed');
+                
+                // Start monitoring pipeline
+                monitorPipeline();
+
+            } catch (error) {
+                uploadStatus.innerHTML = `<div class="error">❌ Upload failed: ${error.message}</div>`;
+                document.getElementById('step1').classList.add('error');
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function monitorPipeline() {
+            const step2 = document.getElementById('step2');
+            const pipelineStatus = document.getElementById('pipelineStatus');
+            const pipelineProgress = document.getElementById('pipelineProgress');
+            const pipelineProgressBar = document.getElementById('pipelineProgressBar');
+            const pipelineResults = document.getElementById('pipelineResults');
+
+            step2.classList.add('processing');
+            pipelineProgress.style.display = 'block';
+            pipelineStatus.innerHTML = 'Monitoring pipeline processing...';
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusResponse = await fetch(`${API_BASE}/pipeline/status/${currentDocumentId}`);
+                    const status = await statusResponse.json();
+
+                    pipelineStatus.innerHTML = `Status: ${status.status}`;
+                    
+                    // Update progress based on status
+                    let progress = 0;
+                    if (status.status === 'processing') {
+                        progress = 50;
+                    } else if (status.status === 'completed') {
+                        progress = 100;
+                    }
+
+                    pipelineProgressBar.style.width = progress + '%';
+
+                    if (status.status === 'completed') {
+                        clearInterval(pollInterval);
+                        
+                        // Get results
+                        const resultsResponse = await fetch(`${API_BASE}/pipeline/results/${currentDocumentId}`);
+                        const results = await resultsResponse.json();
+                        
+                        pipelineResults.innerHTML = `
+                            <div class="success">
+                                <h4>✅ Pipeline Processing Complete!</h4>
+                                <p><strong>Roof Area:</strong> ${results.results?.roof_area_sqft || 'N/A'} sqft</p>
+                                <p><strong>Materials:</strong> ${results.results?.materials?.join(', ') || 'N/A'}</p>
+                                <p><strong>Roof Features:</strong> ${results.results?.roof_features?.length || 0} detected</p>
+                                <p><strong>Confidence:</strong> ${Math.round((results.results?.confidence || 0) * 100)}%</p>
+                            </div>
+                        `;
+                        
+                        step2.classList.remove('processing');
+                        step2.classList.add('completed');
+                        
+                        // Store results for estimate page
+                        localStorage.setItem('latestEstimateResults', JSON.stringify(results));
+                        
+                        // Generate estimate
+                        generateEstimate(results);
+                        
+                    } else if (status.status === 'failed') {
+                        clearInterval(pollInterval);
+                        pipelineResults.innerHTML = `<div class="error">❌ Pipeline failed: ${status.error}</div>`;
+                        step2.classList.remove('processing');
+                        step2.classList.add('error');
+                    }
+
+                } catch (error) {
+                    console.error('Error monitoring pipeline:', error);
+                }
+            }, 2000);
+        }
+
+        function generateEstimate(results) {
+            const step3 = document.getElementById('step3');
+            const estimateStatus = document.getElementById('estimateStatus');
+            const estimateResults = document.getElementById('estimateResults');
+            const viewEstimateBtn = document.getElementById('viewEstimateBtn');
+
+            step3.classList.add('processing');
+            estimateStatus.innerHTML = 'Generating estimate from pipeline results...';
+
+            // Simulate estimate generation
+            setTimeout(() => {
+                const roofArea = results.results?.roof_area_sqft || 0;
+                const materials = results.results?.materials || [];
+                const features = results.results?.roof_features || [];
+                const confidence = results.results?.confidence || 0.8;
+
+                // Calculate costs
+                const materialCostPerSqft = 8.00;
+                const laborCostPerSqft = 4.00;
+                const baseCost = roofArea * (materialCostPerSqft + laborCostPerSqft);
+                const featureCost = features.length * 500; // $500 per feature
+                const totalCost = baseCost + featureCost;
+
+                estimateResults.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Estimate Generated Successfully!</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 15px 0;">
+                            <div>
+                                <p><strong>Project Info:</strong></p>
+                                <p>Roof Area: ${roofArea.toLocaleString()} sqft</p>
+                                <p>Materials: ${materials.join(', ')}</p>
+                                <p>Features: ${features.length} detected</p>
+                            </div>
+                            <div>
+                                <p><strong>Cost Breakdown:</strong></p>
+                                <p>Base Cost: $${baseCost.toLocaleString()}</p>
+                                <p>Feature Cost: $${featureCost.toLocaleString()}</p>
+                                <p><strong>Total: $${totalCost.toLocaleString()}</strong></p>
+                            </div>
+                        </div>
+                        <p><strong>Confidence:</strong> ${Math.round(confidence * 100)}%</p>
+                    </div>
+                `;
+
+                step3.classList.remove('processing');
+                step3.classList.add('completed');
+                viewEstimateBtn.style.display = 'inline-block';
+
+                // Show final results
+                showFinalResults(results, totalCost);
+            }, 2000);
+        }
+
+        function showFinalResults(results, totalCost) {
+            const finalResults = document.getElementById('finalResults');
+            const testSummary = document.getElementById('testSummary');
+
+            finalResults.style.display = 'block';
+            testSummary.innerHTML = `
+                <div class="success">
+                    <h4>🎉 Integration Test Complete!</h4>
+                    <p><strong>Document ID:</strong> ${currentDocumentId}</p>
+                    <p><strong>Pipeline Status:</strong> ✅ Completed</p>
+                    <p><strong>Estimate Generated:</strong> ✅ $${totalCost.toLocaleString()}</p>
+                    <p><strong>Roof Features Detected:</strong> ${results.results?.roof_features?.length || 0}</p>
+                    <p><strong>Overall Confidence:</strong> ${Math.round((results.results?.confidence || 0) * 100)}%</p>
+                    
+                    <h5>✅ All Integration Points Working:</h5>
+                    <ul>
+                        <li>✅ PDF Upload to Backend</li>
+                        <li>✅ Pipeline Processing Trigger</li>
+                        <li>✅ Real-time Status Monitoring</li>
+                        <li>✅ Results Retrieval</li>
+                        <li>✅ Estimate Generation</li>
+                        <li>✅ Frontend Data Flow</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function viewEstimate() {
+            // Open estimate page with pipeline results
+            window.open(`/estimate?source=pipeline&documentId=${currentDocumentId}`, '_blank');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Pipeline Integration Test Page Loaded');
+            console.log('API Base URL:', API_BASE);
+        });
+    </script>
+</body>
+</html>

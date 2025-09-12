@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, TrendingUp, Clock, DollarSign, Bot, Download, Plus } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { UploadZone } from "@/components/dashboard/upload-zone"
+import { PDFPipelineUpload } from "@/components/dashboard/pdf-pipeline-upload"
 import { RecentEstimates } from "@/components/dashboard/recent-estimates"
 
 export default function DashboardPage() {
@@ -96,14 +97,14 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="h-5 w-5" />
-                  Upload Roofing Documents
+                  PDF Pipeline Upload
                 </CardTitle>
                 <CardDescription>
-                  Upload PDFs, blueprints, or specifications to generate comprehensive estimates
+                  Upload PDFs, blueprints, or specifications to generate comprehensive estimates with hybrid AI processing
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <UploadZone />
+                <PDFPipelineUpload />
 
                 {/* AI Features Highlight */}
                 <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
@@ -112,20 +113,23 @@ export default function DashboardPage() {
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-sm">AI-Powered Analysis</h4>
+                      <h4 className="font-semibold text-sm">Hybrid AI Pipeline</h4>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Our advanced AI extracts measurements, materials, and specifications automatically from your
-                        documents with 98.5% accuracy.
+                        Our advanced hybrid pipeline combines computer vision and AI to extract measurements, 
+                        detect roof features, and generate accurate estimates with 98.5% accuracy.
                       </p>
                       <div className="flex gap-2 mt-3">
                         <Badge variant="secondary" className="text-xs">
-                          Google Document AI
+                          Computer Vision
                         </Badge>
                         <Badge variant="secondary" className="text-xs">
-                          Cloud Vision
+                          Claude AI
                         </Badge>
                         <Badge variant="secondary" className="text-xs">
-                          Auto-Extraction
+                          Roof Feature Detection
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          Scale Detection
                         </Badge>
                       </div>
                     </div>

@@ -5,10 +5,10 @@ from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.database import get_db
-from models.core import Document, ProcessingStatus
-from workers.tasks.pdf_processing import process_pdf_document
+from app.core.config import settings
+from app.core.database import get_db
+from app.models.core import Document, ProcessingStatus
+from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
 from ..schemas.upload import DocumentCreateResponse, DocumentDetailResponse
 
 router = APIRouter()
@@ -57,7 +57,7 @@ async def upload_document(
     await db.commit()
     await db.refresh(new_document)
 
-    process_pdf_document.delay(document_id=str(new_document.id))
+    process_pdf_with_pipeline.delay(document_id=str(new_document.id))
 
     return new_document
 

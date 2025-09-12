@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Upload Test - No Backend</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .upload-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            transition: all 0.2s;
+            margin-bottom: 20px;
+        }
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .upload-zone.drag-active {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .file-list {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #2563eb;
+        }
+        .btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.uploading { background: #dbeafe; color: #1e40af; }
+        .status.processing { background: #fef3c7; color: #92400e; }
+        .status.completed { background: #d1fae5; color: #065f46; }
+        .status.error { background: #fee2e2; color: #991b1b; }
+        .stages {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .stage {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .stage:last-child {
+            border-bottom: none;
+        }
+        .stage-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .stage.pending .stage-icon { background: #f1f5f9; color: #64748b; }
+        .stage.processing .stage-icon { background: #dbeafe; color: #1e40af; }
+        .stage.completed .stage-icon { background: #d1fae5; color: #065f46; }
+        .stage.error .stage-icon { background: #fee2e2; color: #991b1b; }
+        .results {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PDF Pipeline Upload Test</h1>
+        <p>Test the new PDF pipeline upload functionality (Frontend Only)</p>
+
+        <div class="upload-zone" id="uploadZone">
+            <h3>📁 Upload PDF Files</h3>
+            <p>Drag and drop PDF files here, or click to browse</p>
+            <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
+            <button class="btn" onclick="document.getElementById('fileInput').click()">Choose Files</button>
+        </div>
+
+        <div class="file-list" id="fileList" style="display: none;">
+            <h3>📋 Selected Files</h3>
+            <div id="files"></div>
+            <button class="btn" id="processBtn" onclick="processFiles()">🚀 Process with Hybrid Pipeline</button>
+        </div>
+
+        <div class="stages" id="stages" style="display: none;">
+            <h3>⚙️ Processing Stages</h3>
+            <div id="stageList"></div>
+        </div>
+
+        <div class="results" id="results" style="display: none;"></div>
+    </div>
+
+    <script>
+        let files = [];
+        let dragActive = false;
+        let currentStage = 0;
+
+        const stages = [
+            { id: 'upload', name: 'Document Upload', description: 'Securing and validating PDF documents' },
+            { id: 'analysis', name: 'Document Analysis', description: 'Classifying document type and determining processing strategy' },
+            { id: 'extraction', name: 'Hybrid Content Extraction', description: 'Computer vision + AI extraction of text, images, and measurements' },
+            { id: 'measurement', name: 'Roof Measurement', description: 'Scale detection and roof feature identification' },
+            { id: 'interpretation', name: 'AI Interpretation', description: 'Claude AI analysis and cost estimation' },
+            { id: 'estimate', name: 'Estimate Generation', description: 'Generating comprehensive roofing estimate' }
+        ];
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const filesDiv = document.getElementById('files');
+        const processBtn = document.getElementById('processBtn');
+        const stagesDiv = document.getElementById('stages');
+        const stageList = document.getElementById('stageList');
+        const resultsDiv = document.getElementById('results');
+
+        // Drag and drop handlers
+        uploadZone.addEventListener('dragenter', handleDrag);
+        uploadZone.addEventListener('dragover', handleDrag);
+        uploadZone.addEventListener('dragleave', handleDrag);
+        uploadZone.addEventListener('drop', handleDrop);
+
+        fileInput.addEventListener('change', handleFileInput);
+
+        function handleDrag(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (e.type === 'dragenter' || e.type === 'dragover') {
+                dragActive = true;
+                uploadZone.classList.add('drag-active');
+            } else if (e.type === 'dragleave') {
+                dragActive = false;
+                uploadZone.classList.remove('drag-active');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragActive = false;
+            uploadZone.classList.remove('drag-active');
+
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                addFiles(Array.from(e.dataTransfer.files));
+            }
+        }
+
+        function handleFileInput(e) {
+            if (e.target.files) {
+                addFiles(Array.from(e.target.files));
+            }
+        }
+
+        function addFiles(newFiles) {
+            const pdfFiles = newFiles.filter(file => file.type === 'application/pdf');
+            
+            pdfFiles.forEach(file => {
+                const fileData = {
+                    file: file,
+                    id: Math.random().toString(36).substr(2, 9),
+                    status: 'uploading',
+                    progress: 0
+                };
+                files.push(fileData);
+            });
+
+            updateFileList();
+        }
+
+        function updateFileList() {
+            if (files.length === 0) {
+                fileList.style.display = 'none';
+                return;
+            }
+
+            fileList.style.display = 'block';
+            filesDiv.innerHTML = '';
+
+            files.forEach(fileData => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div>
+                        <div>📄 ${fileData.file.name}</div>
+                        <div style="font-size: 12px; color: #64748b;">
+                            ${(fileData.file.size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                        <div class="progress" style="width: 200px;">
+                            <div class="progress-bar" style="width: ${fileData.progress}%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="status ${fileData.status}">${fileData.status}</span>
+                        <button onclick="removeFile('${fileData.id}')" style="margin-left: 10px; background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">❌</button>
+                    </div>
+                `;
+                filesDiv.appendChild(fileItem);
+            });
+        }
+
+        function removeFile(id) {
+            files = files.filter(f => f.id !== id);
+            updateFileList();
+        }
+
+        function updateStages() {
+            stagesDiv.style.display = 'block';
+            stageList.innerHTML = '';
+
+            stages.forEach((stage, index) => {
+                const stageDiv = document.createElement('div');
+                stageDiv.className = 'stage';
+                
+                let status = 'pending';
+                if (index < currentStage) status = 'completed';
+                else if (index === currentStage) status = 'processing';
+                
+                stageDiv.className = `stage ${status}`;
+                
+                stageDiv.innerHTML = `
+                    <div class="stage-icon">
+                        ${status === 'completed' ? '✅' : status === 'processing' ? '⏳' : '⭕'}
+                    </div>
+                    <div>
+                        <div style="font-weight: 500;">${stage.name}</div>
+                        <div style="font-size: 12px; color: #64748b;">${stage.description}</div>
+                    </div>
+                `;
+                
+                stageList.appendChild(stageDiv);
+            });
+        }
+
+        async function processFiles() {
+            if (files.length === 0) return;
+
+            processBtn.disabled = true;
+            processBtn.textContent = '⏳ Processing...';
+            
+            // Show stages
+            updateStages();
+
+            try {
+                // Process each file
+                for (let i = 0; i < files.length; i++) {
+                    const fileData = files[i];
+                    
+                    // Update file status
+                    fileData.status = 'processing';
+                    fileData.progress = 25;
+                    updateFileList();
+
+                    // Simulate each stage
+                    for (let stageIndex = 0; stageIndex < stages.length; stageIndex++) {
+                        currentStage = stageIndex;
+                        updateStages();
+                        
+                        // Update file progress
+                        fileData.progress = 25 + (stageIndex * 12.5);
+                        updateFileList();
+                        
+                        // Simulate processing time
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                    }
+
+                    // Complete file
+                    fileData.status = 'completed';
+                    fileData.progress = 100;
+                    updateFileList();
+                }
+
+                // Complete all stages
+                currentStage = stages.length;
+                updateStages();
+
+                // Show results
+                showResults();
+
+            } catch (error) {
+                console.error('Processing failed:', error);
+                files.forEach(f => {
+                    f.status = 'error';
+                    f.progress = 0;
+                });
+                updateFileList();
+            } finally {
+                processBtn.disabled = false;
+                processBtn.textContent = '🚀 Process with Hybrid Pipeline';
+            }
+        }
+
+        function showResults() {
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <h3 style="color: #059669; margin-bottom: 15px;">🎉 Processing Complete!</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div style="text-align: center; padding: 15px; background: #f0f9ff; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #3b82f6;">2,500</div>
+                        <div style="color: #64748b;">Roof Area (sq ft)</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: #f0fdf4; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #059669;">$15,000</div>
+                        <div style="color: #64748b;">Estimated Cost</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: #fef3c7; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #92400e;">85%</div>
+                        <div style="color: #64748b;">Confidence</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong>🔍 Detected Features:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px;">
+                        <li>2 Exhaust Ports (Medium Impact)</li>
+                        <li>1 Walkway (Low Impact)</li>
+                        <li>Multiple Equipment Pads</li>
+                        <li>HVAC Units</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong>📋 Materials Identified:</strong>
+                    <div style="display: flex; gap: 8px; margin-top: 5px;">
+                        <span style="background: #e0f2fe; color: #0277bd; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Membrane</span>
+                        <span style="background: #e8f5e8; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Insulation</span>
+                        <span style="background: #fff3e0; color: #f57c00; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Flashing</span>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn" onclick="alert('Redirecting to estimate page...')">📊 View Full Estimate</button>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

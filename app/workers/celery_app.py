@@ -1,5 +1,5 @@
 from celery import Celery
-from core.config import settings
+from app.core.config import settings
 
 # The Celery app instance is configured with the broker and backend URLs from settings.
 # It's also configured to automatically discover tasks in the specified modules.
@@ -8,7 +8,8 @@ celery_app = Celery(
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
-        "workers.tasks.pdf_processing",
+        "app.workers.tasks.pdf_processing",
+        "app.workers.tasks.new_pdf_processing",
     ],
 )
 

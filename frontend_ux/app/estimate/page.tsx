@@ -21,14 +21,180 @@ export default function EstimatePage() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const estimateId = urlParams.get("id")
+    const source = urlParams.get("source")
+    const documentId = urlParams.get("documentId")
 
-    if (!estimateId || estimateId === "new") {
+    // Check if this is from pipeline processing
+    if (source === "pipeline" && documentId) {
+      loadPipelineResults(documentId)
+    } else if (!estimateId || estimateId === "new") {
       setIsNewEstimate(true)
       setEstimateData(getDefaultEstimateData())
     } else {
       setEstimateData(getMockEstimateData())
     }
   }, [])
+
+  const loadPipelineResults = async (documentId: string) => {
+    try {
+      // Try to get results from localStorage first
+      const storedResults = localStorage.getItem('latestEstimateResults')
+      if (storedResults) {
+        const results = JSON.parse(storedResults)
+        setEstimateData(convertPipelineResultsToEstimateData(results))
+        return
+      }
+
+      // If not in localStorage, fetch from API
+      const { apiClient } = await import('@/lib/api')
+      const results = await apiClient.getPipelineResults(documentId)
+      setEstimateData(convertPipelineResultsToEstimateData(results))
+    } catch (error) {
+      console.error('Error loading pipeline results:', error)
+      // Fallback to default data
+      setEstimateData(getDefaultEstimateData())
+    }
+  }
+
+  const convertPipelineResultsToEstimateData = (results: any) => {
+    const roofArea = results.results?.roof_area_sqft || 0
+    const totalCost = results.results?.estimated_cost || 0
+    const confidence = results.results?.confidence || 0.8
+
+    return {
+      projectInfo: {
+        name: "Pipeline Generated Estimate",
+        client: "Client Name",
+        address: "Project Address",
+        sqft: roofArea > 0 ? roofArea.toLocaleString() : "To be determined",
+        sqftSource: roofArea > 0 ? "hybrid_pipeline" : null,
+        roofType: results.results?.materials?.[0] || "To be determined",
+        date: new Date().toISOString().split("T")[0],
+        estimateId: `EST-${Date.now()}`,
+      },
+      summary: {
+        totalCost: totalCost,
+        laborCost: totalCost * 0.4,
+        materialCost: totalCost * 0.5,
+        permitCost: totalCost * 0.05,
+        contingency: totalCost * 0.05,
+        timeline: "To be determined",
+        confidence: Math.round(confidence * 100),
+      },
+      sections: generateSectionsFromPipelineResults(results),
+      claudeAnalysis: {
+        summary: {
+          projectType: "Pipeline Generated Analysis",
+          totalSquareFootage: roofArea,
+          roofType: results.results?.materials?.[0] || "To be determined",
+          estimatedTotal: totalCost,
+          confidence: confidence,
+          analysisDate: new Date().toISOString(),
+        },
+        expertRecommendations: generateRecommendationsFromResults(results),
+        detailedAnalysis: {
+          structuralAssessment: "Analysis based on hybrid pipeline processing",
+          drainageEvaluation: "Evaluation from blueprint analysis",
+          accessConsiderations: "Considerations from roof feature detection",
+          permitRequirements: "Standard commercial permit requirements",
+        },
+        lineItems: generateLineItemsFromResults(results),
+      },
+    }
+  }
+
+  const generateSectionsFromPipelineResults = (results: any) => {
+    const sections = []
+    const roofArea = results.results?.roof_area_sqft || 0
+    const materials = results.results?.materials || []
+    const roofFeatures = results.results?.roof_features || []
+
+    // Materials section
+    if (materials.length > 0) {
+      sections.push({
+        id: "materials",
+        title: "Materials",
+        icon: "Package",
+        items: materials.map((material: any, index: number) => ({
+          id: `material-${index}`,
+          description: material.type || material,
+          quantity: roofArea > 0 ? roofArea.toLocaleString() : "TBD",
+          unit: "sq ft",
+          unitCost: 0,
+          totalCost: 0,
+          source: "Pipeline Generated",
+          citation: null,
+        }))
+      })
+    }
+
+    // Roof features section
+    if (roofFeatures.length > 0) {
+      sections.push({
+        id: "roof_features",
+        title: "Roof Features",
+        icon: "Wrench",
+        items: roofFeatures.map((feature: any, index: number) => ({
+          id: `feature-${index}`,
+          description: `${feature.type} (${feature.count || 1})`,
+          quantity: feature.count || 1,
+          unit: "units",
+          unitCost: 0,
+          totalCost: 0,
+          source: "Pipeline Detected",
+          citation: null,
+        }))
+      })
+    }
+
+    return sections
+  }
+
+  const generateRecommendationsFromResults = (results: any) => {
+    const recommendations = []
+    const roofFeatures = results.results?.roof_features || []
+
+    if (roofFeatures.some((f: any) => f.type === 'exhaust_port')) {
+      recommendations.push({
+        category: "Installation",
+        recommendation: "Special attention required for exhaust port sealing and flashing",
+        impact: "May require additional labor and materials",
+        confidence: 0.9,
+      })
+    }
+
+    if (roofFeatures.some((f: any) => f.type === 'walkway')) {
+      recommendations.push({
+        category: "Access",
+        recommendation: "Existing walkways may affect material delivery and installation",
+        impact: "Consider access routes during planning",
+        confidence: 0.8,
+      })
+    }
+
+    return recommendations
+  }
+
+  const generateLineItemsFromResults = (results: any) => {
+    const lineItems = []
+    const roofArea = results.results?.roof_area_sqft || 0
+    const materials = results.results?.materials || []
+
+    materials.forEach((material: any, index: number) => {
+      lineItems.push({
+        category: "MATERIAL",
+        description: material.type || material,
+        quantity: roofArea,
+        unit: "sq ft",
+        unitCost: 0,
+        totalCost: 0,
+        confidence: 0.9,
+        sourceReference: "Pipeline analysis",
+      })
+    })
+
+    return lineItems
+  }
 
   const getDefaultEstimateData = () => ({
     projectInfo: {
