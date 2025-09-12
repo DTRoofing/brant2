@@ -5,7 +5,8 @@
       "Bash(docker-compose up:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 bash remove_secrets.sh)"
     ],
     "deny": [],
     "ask": []
