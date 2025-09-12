@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText, X } from "lucide-react"
@@ -10,6 +9,9 @@ import { cn } from "@/lib/utils"
 export function UploadZone() {
   const [dragActive, setDragActive] = useState(false)
   const [files, setFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [status, setStatus] = useState("")
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -43,67 +45,57 @@ export function UploadZone() {
     setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-
   const handleUpload = async () => {
-    if (files.length > 0) {
-      setUploading(true)
-      setUploadProgress(0)
+    if (files.length === 0) {
+      setStatus("Please select a file first")
+      return
+    }
+
+    setUploading(true)
+    setUploadProgress(0)
+    setStatus("Uploading...")
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', files[0])
       
-      try {
-        // Import the API client
-        const { apiClient } = await import('@/lib/api');
-        
-        // Upload and process each file with the hybrid pipeline
-        const processedDocs = []
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i]
-          setUploadProgress((i / files.length) * 100)
-          
-          console.log(`Processing ${file.name} with hybrid pipeline...`);
-          
-          // Upload and start pipeline processing
-          const result = await apiClient.uploadAndProcessDocument(file);
-          console.log('Pipeline started:', result);
-          
-          processedDocs.push({
-            ...result,
-            filename: file.name,
-            filesize: file.size
-          });
-        }
-        
-        // Store processed document info in localStorage
-        const existingDocs = JSON.parse(localStorage.getItem('processedDocuments') || '[]');
-        localStorage.setItem('processedDocuments', JSON.stringify([...existingDocs, ...processedDocs]));
-        
-        setUploadProgress(100)
-        
-        // Show success message
-        alert(`Successfully uploaded ${files.length} file(s). Hybrid pipeline processing started with computer vision and AI analysis.`);
-        
-        // Navigate to processing page with document IDs
-        const documentIds = processedDocs.map(doc => doc.document_id).join(',');
-        setTimeout(() => {
-          window.location.href = `/processing?documents=${documentIds}`
-        }, 1000)
-      } catch (error) {
-        console.error('Upload failed:', error);
-        alert(`Failed to upload files: ${error.message}`);
-      } finally {
-        setUploading(false)
-        setUploadProgress(0)
+      const response = await fetch('/api/proxy/documents/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Upload failed: ${response.status}`)
       }
+      
+      const result = await response.json()
+      setStatus(`Upload successful! Document ID: ${result.id}`)
+      setUploadProgress(100)
+      
+      // Navigate to processing page with document ID
+      setTimeout(() => {
+        window.location.href = `/processing?documents=${result.id || result.document_id}`
+      }, 1000)
+      
+    } catch (error) {
+      console.error("Upload error:", error)
+      setStatus(`Error: ${error.message}`)
+    } finally {
+      setUploading(false)
     }
   }
 
   return (
     <div className="space-y-4">
+      {/* Drop Zone */}
       <div
         className={cn(
-          "relative border-2 border-dashed rounded-lg p-8 text-center transition-colors",
-          dragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50",
+          "relative rounded-lg border-2 border-dashed p-8 transition-colors",
+          dragActive
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25 hover:border-muted-foreground/50",
+          files.length > 0 && "pb-4"
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -113,61 +105,101 @@ export function UploadZone() {
         <input
           type="file"
           multiple
-          accept=".pdf"
+          accept="application/pdf"
           onChange={handleFileInput}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          disabled={uploading}
         />
-
-        <div className="flex flex-col items-center gap-4">
-          <div className="p-4 bg-primary/10 rounded-full">
-            <Upload className="h-8 w-8 text-primary" />
+        
+        <div className="flex flex-col items-center justify-center space-y-4 text-center">
+          <div className="rounded-full bg-muted p-4">
+            <Upload className="h-8 w-8 text-muted-foreground" />
           </div>
-
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Upload Roofing Documents</h3>
-            <p className="text-muted-foreground">Drag and drop PDF files here, or click to browse</p>
-            <p className="text-sm text-muted-foreground">
-              Supports: Blueprints, Specifications, Site Plans, Material Lists
+          
+          <div>
+            <p className="text-lg font-medium">Drop your PDF files here</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              or click to browse from your computer
             </p>
           </div>
-
-          <Button variant="outline">Choose Files</Button>
+          
+          <p className="text-xs text-muted-foreground">
+            Only PDF files are accepted
+          </p>
         </div>
       </div>
 
       {/* File List */}
       {files.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-medium">Selected Files ({files.length})</h4>
-          <div className="space-y-2">
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </div>
+          {files.map((file, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between rounded-lg border bg-card p-3"
+            >
+              <div className="flex items-center space-x-3">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => removeFile(index)}>
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
-            ))}
-          </div>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => removeFile(index)}
+                disabled={uploading}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
-          <Button onClick={handleUpload} className="w-full" disabled={uploading}>
+      {/* Upload Button and Progress */}
+      {files.length > 0 && (
+        <div className="space-y-2">
+          <Button
+            onClick={handleUpload}
+            disabled={uploading}
+            className="w-full"
+            size="lg"
+          >
             {uploading ? (
-              <>Starting Hybrid Pipeline... {uploadProgress.toFixed(0)}%</>
+              <>
+                <Upload className="mr-2 h-4 w-4 animate-spin" />
+                Uploading... {uploadProgress.toFixed(0)}%
+              </>
             ) : (
-              <>Process {files.length} Document{files.length !== 1 ? "s" : ""} with Hybrid Pipeline</>
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload {files.length} {files.length === 1 ? 'File' : 'Files'}
+              </>
             )}
           </Button>
+          
           {uploading && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-              <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+            <div className="h-2 w-full rounded-full bg-secondary">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Status Message */}
+      {status && (
+        <div className={cn(
+          "rounded-lg p-3 text-sm",
+          status.includes("Error") ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+        )}>
+          {status}
         </div>
       )}
     </div>

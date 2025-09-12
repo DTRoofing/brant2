@@ -7,12 +7,12 @@ from celery import Task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from workers.celery_app import celery_app
-from core.config import settings
-from models.core import Document, ProcessingStatus, Measurement
-from core.pdf_processing import extract_text_from_pdf
-from services.claude_service import claude_service
-from services.google_services import google_service
+from app.workers.celery_app import celery_app
+from app.core.config import settings
+from app.models.core import Document, ProcessingStatus, Measurement
+from app.core.pdf_processing import extract_text_from_pdf
+from app.services.claude_service import claude_service
+from app.services.google_services import google_service
 
 logger = logging.getLogger(__name__)
 

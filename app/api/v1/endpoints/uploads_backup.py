@@ -55,19 +55,11 @@ async def upload_document(
     )
     db.add(new_document)
     await db.commit()
-    
-    # Queue background processing (after commit)
-    process_pdf_with_pipeline.delay(document_id=str(unique_id))
-    
-    # Return document data without refresh
-    return {
-        "id": str(unique_id),
-        "filename": file.filename,
-        "file_path": str(file_path),
-        "file_size": file_size,
-        "processing_status": "PENDING",
-        "message": "Document uploaded and processing started"
-    }
+    await db.refresh(new_document)
+
+    process_pdf_with_pipeline.delay(document_id=str(new_document.id))
+
+    return new_document
 
 
 @router.get(

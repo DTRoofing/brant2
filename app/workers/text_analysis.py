@@ -1,8 +1,8 @@
 import logging
-from workers.celery_app import celery_app
-from core.database import SessionLocal
-from models.document import Document, ProcessingStatus
-from services.claude_service import claude_service
+from app.workers.celery_app import celery_app
+from app.core.database import SessionLocal
+from app.models.document import Document, ProcessingStatus
+from app.services.claude_service import claude_service
 
 logger = logging.getLogger(__name__)
 

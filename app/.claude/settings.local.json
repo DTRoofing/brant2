@@ -7,7 +7,18 @@
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 bash remove_secrets.sh)",
-      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch build-documents/brant_optimized_env.sh build-documents/cursor_one_liner.md build-documents/scaffold_script.py PROJECT_TAKEHOME.md' --prune-empty --tag-name-filter cat -- --all)"
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch build-documents/brant_optimized_env.sh build-documents/cursor_one_liner.md build-documents/scaffold_script.py PROJECT_TAKEHOME.md' --prune-empty --tag-name-filter cat -- --all)",
+      "Bash(curl:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(find:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker cp:*)",
+      "Bash(sed:*)",
+      "Bash(python:*)",
+      "Bash(ipconfig)"
     ],
     "deny": [],
     "ask": []

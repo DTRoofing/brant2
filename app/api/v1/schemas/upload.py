@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 import uuid
 from datetime import datetime
-from models.core import ProcessingStatus
+from app.models.core import ProcessingStatus
 from typing import Optional
 
 

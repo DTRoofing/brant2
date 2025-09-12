@@ -104,7 +104,7 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <PDFPipelineUpload />
+                <UploadZone />
 
                 {/* AI Features Highlight */}
                 <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">

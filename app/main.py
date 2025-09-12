@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from api.v1.router import api_router
-from workers.celery_app import celery_app  # Import to configure Celery client
+from app.api.v1.router import api_router
+# from app.workers.celery_app import celery_app  # Import to configure Celery client - disabled
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

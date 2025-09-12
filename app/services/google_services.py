@@ -9,7 +9,7 @@ from google.cloud import storage
 from google.cloud import vision
 from google.oauth2 import service_account
 
-from core.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

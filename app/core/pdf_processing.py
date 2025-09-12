@@ -7,10 +7,10 @@ import PyPDF2
 import pytesseract
 from pdf2image import convert_from_path
 
-# from services.ocr_service import OCRService
-# from services.measurement_service import MeasurementService
-from core.database import AsyncSessionFactory
-from models.core import Document, Measurement, ProcessingStatus
+# from app.services.ocr_service import OCRService
+# from app.services.measurement_service import MeasurementService
+from app.core.database import AsyncSessionFactory
+from app.models.core import Document, Measurement, ProcessingStatus
 
 logger = logging.getLogger(__name__)
 
