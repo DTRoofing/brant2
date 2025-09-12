@@ -3,7 +3,9 @@
     "allow": [
       "Read(//c/Development/Final Build/brant/**)",
       "Bash(docker-compose up:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
