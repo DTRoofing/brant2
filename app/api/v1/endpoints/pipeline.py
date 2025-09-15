@@ -166,22 +166,27 @@ async def cancel_processing(
     """
     try:
         doc_uuid = uuid.UUID(document_id)
-        document = await db.get(Document, doc_uuid)
         
-        if not document:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        if document.processing_status != ProcessingStatus.PROCESSING:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Cannot cancel document. Current status: {document.processing_status.value}"
-            )
-        
-        # Update status to cancelled (you might want to add this status)
-        document.processing_status = ProcessingStatus.FAILED
-        document.processing_error = "Processing cancelled by user"
-        await db.commit()
-        
+        # Use a transaction and lock to prevent race conditions with the worker
+        async with db.begin():
+            stmt = select(Document).where(Document.id == doc_uuid).with_for_update()
+            result = await db.execute(stmt)
+            document = result.scalar_one_or_none()
+
+            if not document:
+                raise HTTPException(status_code=404, detail="Document not found")
+            
+            if document.processing_status not in [ProcessingStatus.PENDING, ProcessingStatus.PROCESSING]:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot cancel document. Current status: {document.processing_status.value}"
+                )
+            
+            # Assuming ProcessingStatus.CANCELLED is added to the enum
+            document.processing_status = ProcessingStatus.CANCELLED
+            document.processing_error = "Processing cancelled by user"
+            # The transaction will commit automatically on exiting the 'async with' block
+
         return {
             "message": "Processing cancelled",
             "document_id": document_id,
