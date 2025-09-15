@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any, List, Optional
 import json
+import os
 
 from app.models.processing import AIInterpretation, ExtractedContent, DocumentType
 from app.services.claude_service import claude_service
@@ -13,6 +14,17 @@ class AIInterpreter:
     
     def __init__(self):
         self.claude_service = claude_service
+        self.roofing_prompt = self._load_roofing_prompt()
+    
+    def _load_roofing_prompt(self) -> str:
+        """Load the roofing estimation prompt from file"""
+        prompt_path = os.path.join(os.path.dirname(__file__), '..', '..', 'prompts', 'roofing_estimation_prompt.txt')
+        try:
+            with open(prompt_path, 'r') as f:
+                return f.read()
+        except FileNotFoundError:
+            logger.warning(f"Roofing prompt file not found at {prompt_path}, using default prompt")
+            return ""
     
     async def interpret_content(self, content: ExtractedContent, document_type: DocumentType) -> AIInterpretation:
         """
@@ -26,17 +38,40 @@ class AIInterpreter:
             AIInterpretation with structured roofing data including roof features
         """
         logger.info(f"Interpreting {document_type} content with AI and roof features")
+
+        # Extract project metadata from content (from index page analysis)
+        project_metadata = {}
+        if hasattr(content, 'project_metadata') and content.project_metadata:
+            project_metadata = content.project_metadata
+            logger.info(f"Using project metadata from index page: {project_metadata}")
+
+        # Check if this is a McDonald's document
+        is_mcdonalds = False
+        mcdonalds_data = {}
+        if hasattr(content, 'metadata') and content.metadata:
+            if content.metadata.get('document_type') == 'mcdonalds_roofing':
+                is_mcdonalds = True
+                mcdonalds_data = content.metadata
+        elif project_metadata.get('client') == "McDonald's" or 'mcdonald' in str(project_metadata).lower():
+            is_mcdonalds = True
+            mcdonalds_data = project_metadata
+
+        if is_mcdonalds:
+            logger.info(f"McDonald's document detected with comprehensive data: {mcdonalds_data}")
         
         try:
             if not self.claude_service.client:
-                return self._interpret_with_rules(content, document_type)
+                return self._interpret_with_rules(content, document_type, mcdonalds_data)
             
             # Create specialized prompt including roof features
-            prompt = self._create_interpretation_prompt_with_features(content, document_type)
+            if is_mcdonalds:
+                prompt = self._create_mcdonalds_interpretation_prompt(content, mcdonalds_data)
+            else:
+                prompt = self._create_interpretation_prompt_with_features(content, document_type)
             
             # Get AI interpretation
             response = self.claude_service.client.messages.create(
-                model="claude-3-sonnet-20240229",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=2048,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -66,7 +101,46 @@ class AIInterpreter:
                 }
             
             # Process roof features
-            roof_features = self._process_roof_features(content.get('roof_features', []))
+            roof_features = self._process_roof_features(content.roof_features if hasattr(content, 'roof_features') else [])
+            
+            # Merge all metadata from index page and AI interpretation
+            metadata = {
+                # Project Information
+                'project_name': interpretation_data.get('project_name', project_metadata.get('project_name', f"McDonald's #{mcdonalds_data.get('store_number', '')}" if is_mcdonalds else '')),
+                'project_number': interpretation_data.get('project_number', project_metadata.get('project_number', mcdonalds_data.get('project_number', ''))),
+                'site_id': project_metadata.get('site_id', ''),
+
+                # Building Information
+                'address': project_metadata.get('address', mcdonalds_data.get('location', '')),
+                'building_height': project_metadata.get('building_height', ''),
+                'structural_makeup': project_metadata.get('structural_makeup', ''),
+                'gross_building_area': project_metadata.get('square_footage', interpretation_data.get('roof_area_sqft', 0)),
+
+                # Contact Information
+                'project_manager': project_metadata.get('project_manager', ''),
+                'pm_email': project_metadata.get('pm_email', ''),
+                'pm_phone': project_metadata.get('pm_phone', ''),
+
+                # Design Team
+                'designer_of_record': project_metadata.get('designer_of_record', ''),
+                'engineer': project_metadata.get('engineer', ''),
+
+                # Dates
+                'issue_date': project_metadata.get('issue_date', ''),
+                'review_date': project_metadata.get('review_date', ''),
+                'reviewed_by': project_metadata.get('reviewed_by', ''),
+
+                # Materials
+                'roof_materials': project_metadata.get('roof_materials', interpretation_data.get('materials', [])),
+
+                # McDonald's specific if applicable
+                'client': project_metadata.get('client', 'McDonald\'s' if is_mcdonalds else ''),
+                'store_number': project_metadata.get('store_number', mcdonalds_data.get('store_number', '')),
+                'document_type': 'mcdonalds_roofing' if is_mcdonalds else 'standard_roofing'
+            }
+
+            # Clean up empty values
+            metadata = {k: v for k, v in metadata.items() if v}
             
             return AIInterpretation(
                 roof_area_sqft=interpretation_data.get('roof_area_sqft'),
@@ -77,7 +151,8 @@ class AIInterpreter:
                 special_requirements=interpretation_data.get('special_requirements', []),
                 roof_features=roof_features,
                 confidence=interpretation_data.get('confidence', 0.8),
-                interpretation_method='claude_ai_with_features'
+                interpretation_method='claude_ai_with_features',
+                metadata=metadata
             )
             
         except Exception as e:
@@ -186,7 +261,48 @@ class AIInterpreter:
             }
             """
     
-    def _interpret_with_rules(self, content: ExtractedContent, document_type: DocumentType) -> AIInterpretation:
+    def _create_mcdonalds_interpretation_prompt(self, content: ExtractedContent, mcdonalds_data: Dict[str, Any]) -> str:
+        """Create specialized prompt for McDonald's documents"""
+        
+        prompt = f"""
+        You are analyzing a McDonald's restaurant roofing document.
+        
+        McDonald's Information Detected:
+        - Project Number: {mcdonalds_data.get('project_number', 'Not found')}
+        - Store Number: {mcdonalds_data.get('store_number', 'Not found')}
+        - Location: {mcdonalds_data.get('location', 'Not found')}
+        - Address: {mcdonalds_data.get('address', 'Not found')}
+        
+        Extracted content:
+        Text: {content.text[:4000]}...
+        
+        Measurements found: {json.dumps(content.measurements, indent=2)}
+        
+        For this McDonald's roofing document, extract:
+        1. Total roof area in square feet (McDonald's restaurants typically 3,000-5,000 sq ft)
+        2. Roof sections (dining area, kitchen, storage)
+        3. Roofing materials (typically commercial membrane - TPO, EPDM, or modified bitumen)
+        4. Special requirements for McDonald's facilities
+        5. Any equipment on roof (HVAC, exhaust fans, grease vents)
+        
+        Respond with JSON:
+        {{
+            "project_name": "McDonald's #{mcdonalds_data.get('store_number', 'Unknown')} - {mcdonalds_data.get('location', 'Unknown')}",
+            "project_number": "{mcdonalds_data.get('project_number', '')}",
+            "store_number": "{mcdonalds_data.get('store_number', '')}",
+            "location": "{mcdonalds_data.get('location', '')}",
+            "roof_area_sqft": number,
+            "roof_pitch": "string",
+            "materials": [{{"type": "string", "quantity": number}}],
+            "measurements": [{{"label": "string", "value": number, "unit": "string"}}],
+            "special_requirements": ["McDonald's corporate standards", "Grease vent protection", "etc"],
+            "confidence": 0.0-1.0
+        }}
+        """
+        
+        return prompt
+    
+    def _interpret_with_rules(self, content: ExtractedContent, document_type: DocumentType, mcdonalds_data: Dict[str, Any] = None) -> AIInterpretation:
         """Fallback rule-based interpretation"""
         logger.info("Using rule-based interpretation")
         
@@ -280,7 +396,21 @@ class AIInterpreter:
     def _create_interpretation_prompt_with_features(self, content: ExtractedContent, document_type: DocumentType) -> str:
         """Create specialized prompt including roof features"""
         
-        base_prompt = f"""
+        # Use the comprehensive roofing prompt if available
+        if self.roofing_prompt:
+            base_prompt = f"""
+        {self.roofing_prompt}
+        
+        Document Type: {document_type}
+        
+        Extracted content:
+        Text: {content.text[:3000]}...
+        
+        Tables: {json.dumps(content.tables[:2], indent=2)}
+        Measurements: {json.dumps(content.measurements, indent=2)}
+        """
+        else:
+            base_prompt = f"""
         You are an expert roofing contractor analyzing a {document_type} document to create a roofing estimate.
         
         Extracted content:
@@ -291,7 +421,7 @@ class AIInterpreter:
         """
         
         # Add roof features information
-        roof_features = content.get('roof_features', [])
+        roof_features = content.roof_features if hasattr(content, 'roof_features') else []
         if roof_features:
             base_prompt += f"""
         
@@ -300,7 +430,7 @@ class AIInterpreter:
         """
         
         # Add verification results
-        verification_result = content.get('verification_result', {})
+        verification_result = content.verification_result if hasattr(content, 'verification_result') else {}
         if verification_result:
             base_prompt += f"""
         

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime, timedelta
 
-from celery import Task
-from sqlalchemy import create_engine
+from celery import Task, signals
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.workers.celery_app import celery_app
@@ -16,9 +16,47 @@ from app.services.pdf_pipeline import pdf_pipeline
 
 logger = logging.getLogger(__name__)
 
-# Create synchronous database engine for Celery workers
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Global variables for database connection
+# These will be initialized per worker process
+engine = None
+SessionLocal = None
+
+@signals.worker_process_init.connect
+def init_worker(**kwargs):
+    """
+    Initialize database engine and session for each worker process.
+    This prevents issues with forked connections from the parent process.
+    """
+    global engine, SessionLocal
+    logger.info("Initializing database connection for worker process...")
+    
+    # Create synchronous database engine for Celery workers with proper SSL
+    # Convert async URL to sync URL and ensure SSL is enabled
+    database_url = str(settings.DATABASE_URL)
+    if "postgresql://" not in database_url:
+        database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    if "sslmode=" not in database_url:
+        database_url += ("&" if "?" in database_url else "?") + "sslmode=require"
+    
+    engine = create_engine(
+        database_url,
+        pool_pre_ping=True,  # Verify connections before using them
+        pool_size=5,
+        max_overflow=10,
+        echo=False  # Set to True for debugging
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    logger.info("Database connection for worker process initialized.")
+
+@signals.worker_process_shutdown.connect
+def shutdown_worker(**kwargs):
+    """
+    Dispose of the database engine when a worker process shuts down.
+    """
+    global engine
+    if engine:
+        logger.info("Disposing of database engine in worker process.")
+        engine.dispose()
 
 
 class PipelineTask(Task):
@@ -85,9 +123,18 @@ def process_pdf_with_pipeline(self, document_id: str):
 
     # --- Stage 3: Save results and final status with a lock ---
     try:
+        logger.info(f"Starting database save for document {document_id}")
         with SessionLocal() as db:
             from app.models.results import ProcessingResults
             doc_uuid = uuid.UUID(document_id)
+            
+            # Test database connection
+            try:
+                db.execute(text("SELECT 1"))
+                logger.info("Database connection verified")
+            except Exception as e:
+                logger.error(f"Database connection test failed: {e}")
+                raise
             
             # Lock the document row before final update
             document = db.query(Document).filter(Document.id == doc_uuid).with_for_update().first()
@@ -98,14 +145,60 @@ def process_pdf_with_pipeline(self, document_id: str):
             # Create or update processing results
             processing_results = db.query(ProcessingResults).filter(ProcessingResults.document_id == doc_uuid).first()
             if not processing_results:
+                logger.info(f"Creating new ProcessingResults for document {document_id}")
                 processing_results = ProcessingResults(document_id=doc_uuid)
                 db.add(processing_results)
+            else:
+                logger.info(f"Updating existing ProcessingResults for document {document_id}")
 
             # Populate results from pipeline
             if result.final_estimate:
-                # ... (omitting for brevity, this logic is correct)
+                # Core measurements
                 processing_results.roof_area_sqft = result.final_estimate.total_area_sqft
-                # ...
+                processing_results.estimated_cost = result.final_estimate.estimated_cost
+                processing_results.confidence_score = result.final_estimate.confidence_score
+                
+                # Materials and labor
+                processing_results.materials = result.final_estimate.materials_needed
+                
+                # Timeline and metadata from final estimate
+                if hasattr(result.final_estimate, 'processing_metadata'):
+                    processing_results.processing_time_seconds = result.processing_time_seconds
+            
+            # AI interpretation data
+            if result.ai_interpretation:
+                processing_results.roof_features = result.ai_interpretation.roof_features
+                processing_results.complexity_factors = result.ai_interpretation.complexity_factors
+                # FIX: Preserve the full AI interpretation for downstream analysis (e.g., McDonald's detection)
+                # Store the complete interpretation data as JSON instead of just a summary string
+                if hasattr(result.ai_interpretation, 'metadata') and result.ai_interpretation.metadata:
+                    import json
+                    processing_results.ai_interpretation = json.dumps(result.ai_interpretation.metadata)
+                else:
+                    # Fallback to structured data if no metadata
+                    interpretation_data = {
+                        "roof_pitch": result.ai_interpretation.roof_pitch,
+                        "confidence": result.ai_interpretation.confidence,
+                        "materials": result.ai_interpretation.materials,
+                        "special_requirements": result.ai_interpretation.special_requirements,
+                        "damage_assessment": result.ai_interpretation.damage_assessment
+                    }
+                    import json
+                    processing_results.ai_interpretation = json.dumps(interpretation_data)
+            
+            # Extraction method and processing metadata
+            if result.extracted_content:
+                processing_results.extraction_method = result.extracted_content.extraction_method
+            
+            # Validation results and recommendations
+            if result.validated_data:
+                processing_results.recommendations = result.validated_data.material_recommendations
+                processing_results.warnings = result.validated_data.warnings
+                processing_results.errors = result.validated_data.errors
+            
+            # Processing timeline and stages
+            processing_results.processing_time_seconds = result.processing_time_seconds
+            processing_results.stages_completed = [stage.value for stage in result.stages_completed]
 
             # Update final document status
             if result.current_stage == ProcessingStatus.COMPLETED:
@@ -115,8 +208,20 @@ def process_pdf_with_pipeline(self, document_id: str):
                 document.processing_status = ProcessingStatus.FAILED
                 document.processing_error = "; ".join(result.errors)
 
+            # Explicitly commit the transaction with logging
+            logger.info(f"Committing transaction for document {document_id}")
             db.commit()
-            logger.info(f"Successfully saved results for document {document_id}")
+            logger.info(f"Transaction committed successfully for document {document_id}")
+            
+            # Verify the data was saved
+            verify_result = db.query(ProcessingResults).filter(ProcessingResults.document_id == doc_uuid).first()
+            if verify_result:
+                logger.info(f"Verified: ProcessingResults saved with ID {verify_result.id}")
+                logger.info(f"  - Roof area: {verify_result.roof_area_sqft}")
+                logger.info(f"  - Cost: {verify_result.estimated_cost}")
+                logger.info(f"  - Confidence: {verify_result.confidence_score}")
+            else:
+                logger.error(f"Verification failed: ProcessingResults not found after commit!")
 
     except Exception as e:
         logger.error(f"Failed to save results for {document_id}: {e}")
@@ -132,27 +237,6 @@ def process_pdf_with_pipeline(self, document_id: str):
     }
 
 
-@celery_app.task
-def process_document_stage(stage_name: str, document_id: str, stage_data: Dict[str, Any]):
-    """
-    Process a single stage of the pipeline (for debugging or manual processing)
-    
-    Args:
-        stage_name: Name of the stage to process
-        document_id: UUID of the document
-        stage_data: Data from previous stages
-    """
-    logger.info(f"Processing stage {stage_name} for document {document_id}")
-    
-    try:
-        # This would be used for individual stage processing
-        # Useful for debugging or manual stage execution
-        pass
-        
-    except Exception as e:
-        logger.error(f"Stage {stage_name} failed for document {document_id}: {e}")
-        raise
-
 
 @celery_app.task
 def cleanup_failed_documents():
@@ -161,7 +245,8 @@ def cleanup_failed_documents():
     """
     with SessionLocal() as db:
         # Find documents that have been failed for more than 24 hours
-        cutoff_date = datetime.utcnow() - timedelta(hours=24)
+        cleanup_hours = settings.FAILED_DOC_CLEANUP_HOURS
+        cutoff_date = datetime.utcnow() - timedelta(hours=cleanup_hours)
         
         failed_documents = db.query(Document).filter(
             Document.processing_status == ProcessingStatus.FAILED,
@@ -178,7 +263,7 @@ def cleanup_failed_documents():
             db.delete(doc)
         
         db.commit()
-        logger.info(f"Cleaned up {len(failed_documents)} failed documents")
+        logger.info(f"Cleaned up {len(failed_documents)} documents that failed more than {cleanup_hours} hours ago.")
 
 
 @celery_app.task

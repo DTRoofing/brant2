@@ -30,6 +30,7 @@ export default function ProcessingPage() {
   const [documentIds, setDocumentIds] = useState<string[]>([])
   const [pipelineResults, setPipelineResults] = useState<any>(null)
   const [processingError, setProcessingError] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
 
   const processingSteps: ProcessingStep[] = [
@@ -113,6 +114,7 @@ export default function ProcessingPage() {
             const status = await apiClient.getPipelineStatus(documentId)
             
             // Update steps based on status
+            // This will now primarily handle start/end states
             updateStepsFromStatus(status)
             
             // Check if completed
@@ -120,6 +122,7 @@ export default function ProcessingPage() {
               clearInterval(pollInterval)
               const results = await apiClient.getPipelineResults(documentId)
               setPipelineResults(results)
+              setIsProcessing(false)
               setIsCompleted(true)
               
               // Store results for estimate page
@@ -131,6 +134,7 @@ export default function ProcessingPage() {
               }, 2000)
             } else if (status.status === 'failed') {
               clearInterval(pollInterval)
+              setIsProcessing(false)
               setProcessingError(status.error || 'Pipeline processing failed')
             }
           } catch (error) {
@@ -150,66 +154,31 @@ export default function ProcessingPage() {
   }, [documentIds])
 
   const updateStepsFromStatus = (status: any) => {
-    // Map pipeline status to processing steps
-    const stepMapping = {
-      'pending': 0,
-      'processing': 1,
-      'completed': 4
-    }
-
-    const currentStepIndex = stepMapping[status.status as keyof typeof stepMapping] || 0
-    setCurrentStep(currentStepIndex)
-
-    // Update steps based on current status
-    setSteps(prev => prev.map((step, index) => {
-      if (index < currentStepIndex) {
-        return { ...step, status: 'completed' as const, progress: 100 }
-      } else if (index === currentStepIndex) {
-        return { ...step, status: 'processing' as const, progress: 50 }
-      } else {
-        return { ...step, status: 'pending' as const, progress: 0 }
-      }
-    }))
-
-    // Update overall progress
-    const progress = (currentStepIndex / (steps.length - 1)) * 100
-    setOverallProgress(progress)
-
-    // Add extracted data based on pipeline results
-    if (status.results) {
-      const extracted = []
-      
-      if (status.results.roof_area_sqft) {
-        extracted.push({
-          type: "Roof Area",
-          value: `${status.results.roof_area_sqft.toLocaleString()} sqft`,
-          confidence: Math.round((status.results.confidence || 0.8) * 100)
-        })
-      }
-
-      if (status.results.roof_features && status.results.roof_features.length > 0) {
-        status.results.roof_features.forEach((feature: any) => {
-          extracted.push({
-            type: "Roof Feature",
-            value: `${feature.type} (${feature.count || 1})`,
-            confidence: Math.round((feature.confidence || 0.7) * 100)
-          })
-        })
-      }
-
-      if (status.results.materials && status.results.materials.length > 0) {
-        status.results.materials.forEach((material: any) => {
-          extracted.push({
-            type: "Material",
-            value: material.type || material,
-            confidence: 90
-          })
-        })
-      }
-
-      setExtractedData(extracted)
+    if (status.status === 'processing' && !isProcessing) {
+      setIsProcessing(true)
+      setCurrentStep(1) // Start simulation at 'Document Analysis'
+    } else if (status.status === 'completed') {
+      setIsProcessing(false)
+      setIsCompleted(true)
+      setCurrentStep(steps.length - 1)
     }
   }
+
+  // This useEffect updates the visual status of the steps based on currentStep
+  useEffect(() => {
+    setSteps(prevSteps =>
+      prevSteps.map((step, index) => {
+        if (index < currentStep) return { ...step, status: 'completed', progress: 100 }
+        if (index === currentStep && isProcessing) return { ...step, status: 'processing', progress: 50 }
+        if (isCompleted) return { ...step, status: 'completed', progress: 100 }
+        return { ...step, status: 'pending', progress: 0 }
+      })
+    )
+
+    // Update overall progress
+    const progress = (currentStep / (steps.length - 1)) * 100
+    setOverallProgress(progress)
+  }, [currentStep, isProcessing, isCompleted, steps.length])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-primary/5">

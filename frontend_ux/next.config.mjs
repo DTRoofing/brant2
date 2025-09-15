@@ -5,7 +5,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,  // Enable TypeScript checking for production safety
   },
   images: {
     unoptimized: true,
@@ -13,6 +13,11 @@ const nextConfig = {
   experimental: {
     // Enable server components
     serverComponentsExternalPackages: ['@prisma/client', '@google-cloud/documentai', '@google-cloud/vision', '@google-cloud/storage']
+  },
+  // Increase server request size limit
+  serverRuntimeConfig: {
+    // Will only be available on the server side
+    maxRequestSize: '200mb'
   }
 }
 

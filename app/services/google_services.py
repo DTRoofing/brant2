@@ -28,13 +28,24 @@ class GoogleCloudService:
         self.credentials = None
         if settings.GOOGLE_APPLICATION_CREDENTIALS:
             try:
-                if os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
-                    self.credentials = service_account.Credentials.from_service_account_file(
-                        settings.GOOGLE_APPLICATION_CREDENTIALS
-                    )
-                    logger.info("Google Cloud credentials loaded successfully")
-                else:
-                    logger.warning(f"Credentials file not found: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+                # Try both absolute and relative paths
+                cred_paths = [
+                    settings.GOOGLE_APPLICATION_CREDENTIALS,
+                    os.path.abspath(settings.GOOGLE_APPLICATION_CREDENTIALS),
+                    "/app/google-credentials.json",  # Docker container path
+                    "./google-credentials.json"  # Local path
+                ]
+                
+                for cred_path in cred_paths:
+                    if os.path.exists(cred_path):
+                        self.credentials = service_account.Credentials.from_service_account_file(
+                            cred_path
+                        )
+                        logger.info(f"Google Cloud credentials loaded successfully from: {cred_path}")
+                        break
+                
+                if not self.credentials:
+                    logger.warning(f"Credentials file not found at any location")
             except Exception as e:
                 logger.error(f"Failed to load Google Cloud credentials: {e}")
         
@@ -100,7 +111,84 @@ class GoogleCloudService:
     
     async def process_document_with_ai(self, file_path: str) -> Dict[str, Any]:
         """
-        Process a document using Google Document AI
+        Process a document using Google Document AI with automatic splitting for large files
+        
+        Args:
+            file_path: Path to the document file
+            
+        Returns:
+            Extracted document data (combined from all chunks if split)
+        """
+        if not self.document_ai_client or not self.project_id or not self.processor_id:
+            logger.warning("Document AI not configured, skipping processing")
+            return {}
+        
+        try:
+            from .pdf_splitter import pdf_splitter
+            
+            # Check if PDF needs splitting
+            if pdf_splitter.needs_splitting(file_path):
+                logger.info(f"Large PDF detected, splitting into chunks: {file_path}")
+                
+                # Split PDF into chunks
+                chunks = pdf_splitter.split_pdf(file_path)
+                chunk_results = []
+                
+                # Process each chunk
+                for i, chunk in enumerate(chunks):
+                    if chunk.get('is_original', False):
+                        # Original file doesn't need splitting
+                        result = await self._process_single_document(chunk['file_path'])
+                        chunk_results.append(result)
+                    else:
+                        logger.info(f"Processing chunk {i+1}/{len(chunks)}: "
+                                   f"pages {chunk['start_page']}-{chunk['end_page']} "
+                                   f"({chunk['file_size_mb']}MB)")
+                        
+                        result = await self._process_single_document(chunk['file_path'])
+                        if result:
+                            # Add chunk metadata to result
+                            result.update({
+                                'chunk_info': chunk,
+                                'start_page': chunk['start_page'],
+                                'end_page': chunk['end_page'],
+                                'page_count': chunk['page_count']
+                            })
+                        chunk_results.append(result)
+                
+                # Merge results from all chunks
+                combined_result = pdf_splitter.merge_results(chunk_results, file_path)
+                
+                # Clean up temporary chunk files
+                pdf_splitter.cleanup_chunks(chunks)
+                
+                # Convert combined result to expected format
+                final_result = {
+                    "text": combined_result.get('combined_text', ''),
+                    "pages": combined_result.get('total_pages', 0),
+                    "entities": combined_result.get('combined_entities', []),
+                    "tables": combined_result.get('combined_tables', []),
+                    "measurements": combined_result.get('combined_measurements', []),
+                    "chunk_count": combined_result.get('chunk_count', 0),
+                    "chunk_summaries": combined_result.get('chunk_summaries', [])
+                }
+                
+                logger.info(f"Combined Document AI processing complete. "
+                           f"Processed {len(chunks)} chunks, "
+                           f"extracted {len(final_result['text'])} characters")
+                
+                return final_result
+            else:
+                # Process single document normally
+                return await self._process_single_document(file_path)
+            
+        except Exception as e:
+            logger.error(f"Document AI processing failed: {e}")
+            return {}
+    
+    async def _process_single_document(self, file_path: str) -> Dict[str, Any]:
+        """
+        Process a single document with Document AI (internal method)
         
         Args:
             file_path: Path to the document file
@@ -108,22 +196,19 @@ class GoogleCloudService:
         Returns:
             Extracted document data
         """
-        if not self.document_ai_client or not self.project_id or not self.processor_id:
-            logger.warning("Document AI not configured, skipping processing")
-            return {}
-        
         try:
             # Read the file
             with open(file_path, "rb") as file:
                 file_content = file.read()
             
+            # Check file size
+            file_size_mb = len(file_content) / 1024 / 1024
+            if file_size_mb > 30:
+                logger.warning(f"File size {file_size_mb:.2f}MB exceeds Document AI limit")
+                return {}
+            
             # Create the Document AI request
             name = f"projects/{self.project_id}/locations/{self.location}/processors/{self.processor_id}"
-            
-            document = documentai.Document(
-                content=file_content,
-                mime_type="application/pdf"
-            )
             
             request = documentai.ProcessRequest(
                 name=name,
@@ -134,7 +219,7 @@ class GoogleCloudService:
             )
             
             # Process the document
-            logger.info(f"Processing document with Document AI: {file_path}")
+            logger.debug(f"Processing single document with Document AI: {file_path}")
             result = self.document_ai_client.process_document(request=request)
             
             # Extract relevant information
@@ -172,11 +257,11 @@ class GoogleCloudService:
                         table_data.append(row_data)
                     document_data["tables"].append(table_data)
             
-            logger.info(f"Document AI processing complete. Extracted {len(document_data['text'])} characters")
+            logger.debug(f"Single document processing complete. Extracted {len(document_data['text'])} characters")
             return document_data
             
         except Exception as e:
-            logger.error(f"Document AI processing failed: {e}")
+            logger.error(f"Single document processing failed: {e}")
             return {}
     
     def _get_text_from_layout(self, layout, document_text: str) -> str:

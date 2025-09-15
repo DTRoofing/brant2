@@ -129,7 +129,52 @@ async def get_processing_results(
                 }
             }
         
-        # Return actual results from database
+        # Calculate cost breakdown based on project type and industry standards
+        total_cost = processing_results.estimated_cost or 0
+        roof_area = processing_results.roof_area_sqft or 0
+        
+        # Determine complexity from factors
+        complexity_count = len(processing_results.complexity_factors or [])
+        complexity = "low" if complexity_count <= 2 else "medium" if complexity_count <= 4 else "high"
+        
+        # Smart cost breakdown based on materials and project type
+        is_commercial = roof_area > 10000 or "commercial" in str(processing_results.materials).lower()
+        
+        if is_commercial:
+            labor_percentage = 0.35
+            material_percentage = 0.55
+            permit_percentage = 0.06
+            contingency_percentage = 0.04
+        else:
+            labor_percentage = 0.40
+            material_percentage = 0.50
+            permit_percentage = 0.05
+            contingency_percentage = 0.05
+        
+        # Format metadata with proper client information
+        metadata = {}
+        
+        # Check if this is a McDonald's document
+        if processing_results.ai_interpretation and "mcdonald" in processing_results.ai_interpretation.lower():
+            # Extract McDonald's specific information
+            import re
+            store_match = re.search(r'store\s*#?\s*(\d+)', processing_results.ai_interpretation, re.IGNORECASE)
+            project_match = re.search(r'project\s*#?\s*([\d-]+)', processing_results.ai_interpretation, re.IGNORECASE)
+            
+            metadata["document_type"] = "mcdonalds_roofing"
+            metadata["client_name"] = f"McDonald's Store #{store_match.group(1) if store_match else 'Unknown'}"
+            metadata["project_name"] = f"McDonald's Roofing Project {project_match.group(1) if project_match else ''}"
+            metadata["company_name"] = "McDonald's Corporation"
+        else:
+            # Generic client information
+            metadata["client_name"] = document.filename.replace('.pdf', '').replace('_', ' ').title() if document.filename else "Client"
+            metadata["project_name"] = f"Roofing Project - {document.filename[:20] if document.filename else 'New'}"
+            metadata["company_name"] = "Commercial Client"
+        
+        metadata["document_id"] = str(document_id)
+        metadata["complexity"] = complexity
+        
+        # Return enhanced results from database
         return {
             "document_id": document_id,
             "status": "completed",
@@ -137,16 +182,25 @@ async def get_processing_results(
             "file_path": document.file_path,
             "processed_at": processing_results.created_at.isoformat(),
             "results": {
-                "roof_area_sqft": processing_results.roof_area_sqft or 0,
+                "roof_area_sqft": roof_area,
                 "materials": processing_results.materials or [],
-                "estimated_cost": processing_results.estimated_cost or 0,
+                "estimated_cost": total_cost,
                 "confidence": processing_results.confidence_score or 0,
                 "roof_features": processing_results.roof_features or [],
                 "complexity_factors": processing_results.complexity_factors or [],
                 "ai_interpretation": processing_results.ai_interpretation,
                 "recommendations": processing_results.recommendations or [],
                 "processing_time_seconds": processing_results.processing_time_seconds,
-                "extraction_method": processing_results.extraction_method
+                "extraction_method": processing_results.extraction_method,
+                # Add cost breakdown
+                "labor_cost": total_cost * labor_percentage,
+                "material_cost": total_cost * material_percentage,
+                "permit_cost": total_cost * permit_percentage,
+                "contingency": total_cost * contingency_percentage,
+                # Add complexity for timeline calculation
+                "complexity": complexity,
+                # Add formatted metadata
+                "metadata": metadata
             }
         }
         
@@ -200,27 +254,54 @@ async def cancel_processing(
 
 
 @router.get("/health")
-async def pipeline_health():
+async def pipeline_health(db: AsyncSession = Depends(get_db)):
     """
-    Check the health of the processing pipeline
+    Check the health of the processing pipeline and its dependencies.
     """
+    from app.workers.celery_app import celery_app
+    from sqlalchemy import text
+    from datetime import datetime
+
+    db_ok = False
+    redis_ok = False
+
+    # Check Database Connection
     try:
-        # Check if all services are available
-        health_status = {
+        await db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    # Check Redis (Celery broker) Connection
+    try:
+        celery_app.broker_connection().ensure_connection(max_retries=1)
+        redis_ok = True
+    except Exception:
+        redis_ok = False
+
+    is_healthy = db_ok and redis_ok
+    status_code = 200 if is_healthy else 503
+
+    if not is_healthy:
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "status": "unhealthy",
+                "dependencies": {"database": "ok" if db_ok else "error", "redis": "ok" if redis_ok else "error"},
+            },
+        )
+
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "details": {
             "pipeline": "healthy",
             "services": {
-                "document_analyzer": "available",
-                "content_extractor": "available", 
-                "ai_interpreter": "available",
-                "data_validator": "available"
+                "database": "ok",
+                "redis": "ok",
             },
-            "timestamp": "2024-01-01T00:00:00Z"  # You'd use actual timestamp
         }
-        
-        return health_status
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Pipeline health check failed: {str(e)}")
+    }
 
 
 @router.get("/stats")

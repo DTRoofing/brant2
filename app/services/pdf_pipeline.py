@@ -120,6 +120,11 @@ class PDFProcessingPipeline:
         """Generate the final roofing estimate"""
         logger.info("Generating final roofing estimate")
         
+        # Check for McDonald's metadata
+        is_mcdonalds = interpretation.metadata.get('document_type') == 'mcdonalds_roofing'
+        if is_mcdonalds:
+            logger.info(f"Generating McDonald's estimate with metadata: {interpretation.metadata}")
+        
         # Calculate total area
         total_area = interpretation.roof_area_sqft or 0
         if not total_area and validated_data.validated_measurements:
@@ -160,6 +165,25 @@ class PDFProcessingPipeline:
             (1.0 if total_area > 0 else 0.0) * 0.2
         )
         
+        # Include McDonald's metadata in processing metadata
+        processing_metadata = {
+            'interpretation_confidence': interpretation.confidence,
+            'validation_quality_score': validated_data.quality_score,
+            'warnings': validated_data.warnings,
+            'errors': validated_data.errors
+        }
+        
+        # Add McDonald's specific metadata if present
+        if is_mcdonalds:
+            processing_metadata.update({
+                'document_type': 'mcdonalds_roofing',
+                'project_name': interpretation.metadata.get('project_name'),
+                'project_number': interpretation.metadata.get('project_number'),
+                'store_number': interpretation.metadata.get('store_number'),
+                'location': interpretation.metadata.get('location'),
+                'address': interpretation.metadata.get('address')
+            })
+        
         return RoofingEstimate(
             total_area_sqft=total_area,
             estimated_cost=estimated_cost,
@@ -168,12 +192,8 @@ class PDFProcessingPipeline:
             timeline_estimate=timeline_estimate,
             confidence_score=confidence_score,
             created_at=datetime.now(),
-            processing_metadata={
-                'interpretation_confidence': interpretation.confidence,
-                'validation_quality_score': validated_data.quality_score,
-                'warnings': validated_data.warnings,
-                'errors': validated_data.errors
-            }
+            processing_metadata=processing_metadata,
+            metadata=interpretation.metadata  # Pass through all metadata
         )
     
     def _calculate_timeline(self, total_area: float, interpretation: AIInterpretation) -> str:

@@ -16,75 +16,120 @@ export default function EstimatePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isNewEstimate, setIsNewEstimate] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [dataSource, setDataSource] = useState<string | null>(null)
   const [estimateData, setEstimateData] = useState<any>(null)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
-    const estimateId = urlParams.get("id")
+    // Consolidate ID fetching to be more robust. Prioritize 'document_id', then 'documentId', then 'id'.
+    const documentId = urlParams.get("document_id") || urlParams.get("documentId") || urlParams.get("id")
     const source = urlParams.get("source")
-    const documentId = urlParams.get("documentId")
+    setDataSource(source)
 
-    // Check if this is from pipeline processing
-    if (source === "pipeline" && documentId) {
-      loadPipelineResults(documentId)
-    } else if (!estimateId || estimateId === "new") {
+    if (documentId && documentId !== "new") {
+      // If we have a valid document ID, load its results.
+      loadPipelineResults(documentId, source)
+    } else {
+      // Otherwise, treat it as a new estimate. This handles cases where no ID is present,
+      // or the ID is explicitly 'new'.
       setIsNewEstimate(true)
       setEstimateData(getDefaultEstimateData())
-    } else {
-      setEstimateData(getMockEstimateData())
     }
   }, [])
 
-  const loadPipelineResults = async (documentId: string) => {
+  const loadPipelineResults = async (documentId: string, source: string | null) => {
+    setError(null)
     try {
-      // Try to get results from localStorage first
-      const storedResults = localStorage.getItem('latestEstimateResults')
-      if (storedResults) {
-        const results = JSON.parse(storedResults)
-        setEstimateData(convertPipelineResultsToEstimateData(results))
-        return
-      }
-
-      // If not in localStorage, fetch from API
+      // Always fetch fresh results from the API to ensure data is not stale
       const { apiClient } = await import('@/lib/api')
+      localStorage.removeItem('latestEstimateResults') // Clean up any old stored results
       const results = await apiClient.getPipelineResults(documentId)
-      setEstimateData(convertPipelineResultsToEstimateData(results))
+      setEstimateData(convertPipelineResultsToEstimateData(results, source))
     } catch (error) {
       console.error('Error loading pipeline results:', error)
-      // Fallback to default data
-      setEstimateData(getDefaultEstimateData())
+      let errorMessage = "Failed to load pipeline results. The document may still be processing or an error occurred."
+      if (error instanceof Error) {
+        errorMessage += ` Details: ${error.message}`
+      }
+      setError(errorMessage)
+      // Do not fall back to default data, show an error state instead.
+      setEstimateData(null)
     }
   }
 
-  const convertPipelineResultsToEstimateData = (results: any) => {
+  const calculateTimeline = (sqft: number, complexity: string = 'medium'): string => {
+    // Calculate timeline based on square footage and complexity
+    if (sqft === 0) return "To be determined"
+    
+    const baseWeeks = Math.ceil(sqft / 5000) // Base: 1 week per 5000 sqft
+    const complexityMultiplier = {
+      'low': 0.8,
+      'medium': 1.0,
+      'high': 1.5,
+      'very_high': 2.0
+    }[complexity] || 1.0
+    
+    const weeks = Math.ceil(baseWeeks * complexityMultiplier)
+    
+    if (weeks === 1) return "1 week"
+    if (weeks <= 2) return "1-2 weeks"
+    if (weeks <= 4) return "3-4 weeks"
+    if (weeks <= 8) return "6-8 weeks"
+    return `${weeks-1}-${weeks+1} weeks`
+  }
+
+  const formatClientInfo = (metadata: any): { projectName: string; clientName: string; address: string } => {
+    // Format client information based on backend metadata
+    // This should eventually be done entirely in the backend
+    const projectName = metadata.project_name || "Roofing Estimate"
+    const clientName = metadata.client_name || metadata.company_name || "Client Name"
+    const address = metadata.full_address || metadata.address || "Project Address"
+    
+    return { projectName, clientName, address }
+  }
+
+  const convertPipelineResultsToEstimateData = (results: any, source: string | null) => {
     const roofArea = results.results?.roof_area_sqft || 0
     const totalCost = results.results?.estimated_cost || 0
     const confidence = results.results?.confidence || 0.8
+    const metadata = results.results?.metadata || {}
+    
+    // Determine source and project type more dynamically
+    const extractionMethod = results.results?.extraction_method || source || "pipeline"
+    const projectType = source === 'claude-direct' 
+        ? "Direct Claude Analysis" 
+        : "Hybrid Pipeline Analysis"
+
+    // Use backend-formatted client information
+    const { projectName, clientName, address } = formatClientInfo(metadata)
 
     return {
       projectInfo: {
-        name: "Pipeline Generated Estimate",
-        client: "Client Name",
-        address: "Project Address",
-        sqft: roofArea > 0 ? roofArea.toLocaleString() : "To be determined",
-        sqftSource: roofArea > 0 ? "hybrid_pipeline" : null,
-        roofType: results.results?.materials?.[0] || "To be determined",
+        name: projectName,
+        client: clientName,
+        address: address,
+        sqft: roofArea > 0 ? roofArea.toLocaleString() : "N/A",
+        sqftSource: roofArea > 0 ? extractionMethod : null,
+        roofType: results.results?.roof_type || results.results?.materials?.[0]?.type || results.results?.materials?.[0] || "To be determined",
         date: new Date().toISOString().split("T")[0],
-        estimateId: `EST-${Date.now()}`,
+        estimateId: metadata.project_number || metadata.document_id || `EST-${Date.now()}`,
+        metadata: metadata,  // Store full metadata for reference
       },
       summary: {
         totalCost: totalCost,
-        laborCost: totalCost * 0.4,
-        materialCost: totalCost * 0.5,
-        permitCost: totalCost * 0.05,
-        contingency: totalCost * 0.05,
-        timeline: "To be determined",
+        // Use cost breakdown from backend if available, otherwise use industry standards
+        laborCost: results.results?.labor_cost || (totalCost * 0.4),
+        materialCost: results.results?.material_cost || (totalCost * 0.5),
+        permitCost: results.results?.permit_cost || (totalCost * 0.05),
+        contingency: results.results?.contingency || (totalCost * 0.05),
+        timeline: calculateTimeline(roofArea, results.results?.complexity),
         confidence: Math.round(confidence * 100),
       },
       sections: generateSectionsFromPipelineResults(results),
       claudeAnalysis: {
         summary: {
-          projectType: "Pipeline Generated Analysis",
+          projectType: projectType,
           totalSquareFootage: roofArea,
           roofType: results.results?.materials?.[0] || "To be determined",
           estimatedTotal: totalCost,
@@ -237,271 +282,8 @@ export default function EstimatePage() {
     },
   })
 
-  const getMockEstimateData = () => ({
-    projectInfo: {
-      name: "Warehouse Complex Roof Replacement",
-      client: "ABC Manufacturing",
-      address: "1234 Industrial Blvd, Manufacturing District",
-      sqft: "15,000",
-      sqftSource: "pdf_extracted",
-      roofType: "Commercial TPO Membrane",
-      date: "2024-01-15",
-      estimateId: "EST-2024-001",
-    },
-    summary: {
-      totalCost: 127500,
-      laborCost: 45000,
-      materialCost: 65000,
-      permitCost: 2500,
-      contingency: 15000,
-      timeline: "3-4 weeks",
-      confidence: 94,
-    },
-    sections: [
-      {
-        id: "materials",
-        title: "Materials",
-        icon: "Package",
-        items: [
-          {
-            id: "tpo-membrane",
-            description: "TPO Membrane 60 mil",
-            quantity: "16,500",
-            unit: "sq ft",
-            unitCost: 2.85,
-            totalCost: 47025,
-            source: "AI Extracted",
-            citation: {
-              text: "TPO membrane roofing system, 60 mil thickness",
-              page: 3,
-              confidence: 96,
-              pdfName: "warehouse-roof-specs.pdf",
-            },
-          },
-          {
-            id: "insulation",
-            description: "Polyiso Insulation R-30",
-            quantity: "15,000",
-            unit: "sq ft",
-            unitCost: 1.2,
-            totalCost: 18000,
-            source: "AI Extracted",
-            citation: {
-              text: "R-30 polyisocyanurate insulation board",
-              page: 4,
-              confidence: 92,
-              pdfName: "warehouse-roof-specs.pdf",
-            },
-          },
-          {
-            id: "fasteners",
-            description: "Roofing Fasteners & Plates",
-            quantity: "2,400",
-            unit: "pieces",
-            unitCost: 0.75,
-            totalCost: 1800,
-            source: "Manual Input Required",
-            citation: null,
-          },
-        ],
-      },
-      {
-        id: "labor",
-        title: "Labor",
-        icon: "Users",
-        items: [
-          {
-            id: "tear-off",
-            description: "Existing Roof Tear-off",
-            quantity: "15,000",
-            unit: "sq ft",
-            unitCost: 1.5,
-            totalCost: 22500,
-            source: "AI Extracted",
-            citation: {
-              text: "Remove existing built-up roofing system",
-              page: 2,
-              confidence: 89,
-              pdfName: "warehouse-roof-specs.pdf",
-            },
-          },
-          {
-            id: "installation",
-            description: "TPO Installation",
-            quantity: "15,000",
-            unit: "sq ft",
-            unitCost: 1.5,
-            totalCost: 22500,
-            source: "Standard Rate",
-            citation: null,
-          },
-          {
-            id: "cleanup",
-            description: "Site Cleanup & Disposal",
-            quantity: "1",
-            unit: "job",
-            unitCost: 3500,
-            totalCost: 3500,
-            source: "Manual Input Required",
-            citation: null,
-          },
-        ],
-      },
-      {
-        id: "permits",
-        title: "Permits & Fees",
-        icon: "FileCheck",
-        items: [
-          {
-            id: "building-permit",
-            description: "Building Permit",
-            quantity: "1",
-            unit: "permit",
-            unitCost: 1500,
-            totalCost: 1500,
-            source: "Manual Input Required",
-            citation: null,
-          },
-          {
-            id: "inspection-fees",
-            description: "Inspection Fees",
-            quantity: "3",
-            unit: "inspections",
-            unitCost: 250,
-            totalCost: 750,
-            source: "Manual Input Required",
-            citation: null,
-          },
-        ],
-      },
-      {
-        id: "equipment",
-        title: "Equipment & Tools",
-        icon: "Wrench",
-        items: [
-          {
-            id: "crane-rental",
-            description: "Crane Rental",
-            quantity: "5",
-            unit: "days",
-            unitCost: 800,
-            totalCost: 4000,
-            source: "Manual Input Required",
-            citation: null,
-          },
-          {
-            id: "safety-equipment",
-            description: "Safety Equipment & Barriers",
-            quantity: "1",
-            unit: "job",
-            unitCost: 1200,
-            totalCost: 1200,
-            source: "Manual Input Required",
-            citation: null,
-          },
-        ],
-      },
-      {
-        id: "contingency",
-        title: "Contingency & Risk",
-        icon: "AlertTriangle",
-        items: [
-          {
-            id: "weather-delays",
-            description: "Weather Delay Contingency",
-            quantity: "1",
-            unit: "allowance",
-            unitCost: 5000,
-            totalCost: 5000,
-            source: "Standard Practice",
-            citation: null,
-          },
-          {
-            id: "structural-issues",
-            description: "Structural Repair Allowance",
-            quantity: "1",
-            unit: "allowance",
-            unitCost: 10000,
-            totalCost: 10000,
-            source: "Manual Input Required",
-            citation: null,
-          },
-        ],
-      },
-    ],
-    claudeAnalysis: {
-      summary: {
-        projectType: "Commercial Roof Replacement",
-        totalSquareFootage: 15000,
-        roofType: "TPO Membrane System",
-        estimatedTotal: 142750,
-        confidence: 0.87,
-        analysisDate: "2024-01-15T10:30:00Z",
-      },
-      expertRecommendations: [
-        {
-          category: "Materials",
-          recommendation: "Upgrade to 80-mil TPO membrane for enhanced durability in industrial environment",
-          impact: "Additional $8,250 cost but 25% longer lifespan",
-          confidence: 0.92,
-        },
-        {
-          category: "Labor",
-          recommendation: "Schedule installation during dry season (May-September) to minimize weather delays",
-          impact: "Reduces contingency needs by 30%",
-          confidence: 0.89,
-        },
-        {
-          category: "Safety",
-          recommendation: "Install temporary roof anchors for fall protection during multi-day installation",
-          impact: "Additional $2,400 but ensures OSHA compliance",
-          confidence: 0.95,
-        },
-      ],
-      detailedAnalysis: {
-        structuralAssessment:
-          "Existing roof deck appears adequate based on specifications. Recommend structural engineer verification for areas with visible deflection.",
-        drainageEvaluation:
-          "Current drainage system adequate but recommend adding two additional roof drains in low-slope areas identified in plans.",
-        accessConsiderations:
-          "Crane access limited to north side of building. Factor additional material handling time.",
-        permitRequirements:
-          "Commercial permit required. Expect 2-3 week approval process. Fire department inspection needed for buildings over 10,000 sq ft.",
-      },
-      lineItems: [
-        {
-          category: "MATERIAL",
-          description: "TPO Membrane 80-mil (Upgraded)",
-          quantity: 16500,
-          unit: "sq ft",
-          unitCost: 3.35,
-          totalCost: 55275,
-          confidence: 0.94,
-          sourceReference: "Page 3 - Membrane specifications",
-        },
-        {
-          category: "LABOR",
-          description: "Membrane Installation with Mechanical Attachment",
-          quantity: 15000,
-          unit: "sq ft",
-          unitCost: 2.25,
-          totalCost: 33750,
-          confidence: 0.88,
-          sourceReference: "Page 5 - Installation requirements",
-        },
-        {
-          category: "SAFETY",
-          description: "Temporary Roof Anchor System",
-          quantity: 12,
-          unit: "anchors",
-          unitCost: 200,
-          totalCost: 2400,
-          confidence: 0.95,
-          sourceReference: "Safety requirements inferred from building height",
-        },
-      ],
-    },
-  })
+  // Mock data function removed - only for demo/testing purposes
+  // Real data comes from pipeline processing results
 
   const handleExport = (type: string, result: any) => {
     console.log("[v0] Export completed:", type, result)
@@ -601,13 +383,18 @@ export default function EstimatePage() {
 
       <div className="border-b bg-gradient-to-r from-primary/5 to-blue-50">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary rounded-xl shadow-sm">
-              <Building2 className="h-7 w-7 text-primary-foreground" />
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary rounded-xl shadow-sm">
+                <Building2 className="h-7 w-7 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="font-bold text-2xl text-slate-900">Roofing Estimate</h1>
+                <p className="text-base text-slate-600">{estimateData.projectInfo.name}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-bold text-2xl text-slate-900">Roofing Estimate</h1>
-              <p className="text-base text-slate-600">{estimateData.projectInfo.name}</p>
+            <div className="flex flex-col items-end gap-2">
+              {dataSource && <Badge variant="secondary">Source: {dataSource}</Badge>}
             </div>
           </div>
         </div>

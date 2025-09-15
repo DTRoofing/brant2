@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Proxy configuration for Docker backend
-const BACKEND_URL = 'http://brant-api-1:3001';
-const DOCKER_BACKEND_URL = 'http://brant-api-1:3001';
+// Fixed backend URL - always use localhost:3001 for consistent development
+const BACKEND_URL = 'http://localhost:3001';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { path: string[] } }
 ) {
   const path = params.path.join('/');
-  const url = `${DOCKER_BACKEND_URL}/api/v1/${path}`;
+  const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
     const response = await fetch(url, {
@@ -38,7 +37,7 @@ export async function POST(
   { params }: { params: { path: string[] } }
 ) {
   const path = params.path.join('/');
-  const url = `${DOCKER_BACKEND_URL}/api/v1/${path}`;
+  const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
     // Handle FormData for file uploads
@@ -81,7 +80,7 @@ export async function PUT(
   { params }: { params: { path: string[] } }
 ) {
   const path = params.path.join('/');
-  const url = `${DOCKER_BACKEND_URL}/api/v1/${path}`;
+  const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
     const response = await fetch(url, {
@@ -112,7 +111,7 @@ export async function DELETE(
   { params }: { params: { path: string[] } }
 ) {
   const path = params.path.join('/');
-  const url = `${DOCKER_BACKEND_URL}/api/v1/${path}`;
+  const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
     const response = await fetch(url, {

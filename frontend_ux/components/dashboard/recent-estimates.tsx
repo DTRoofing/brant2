@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Eye, Download, MoreHorizontal, Building, Calendar, DollarSign, AlertTriangle } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExportDialog } from "@/components/export/export-dialog"
+import { formatDate } from "@/lib/date-utils"
 
 export function RecentEstimates() {
   const estimates = [
@@ -107,7 +108,7 @@ export function RecentEstimates() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {new Date(estimate.date).toLocaleDateString()}
+                    {formatDate(estimate.date)}
                   </div>
                   <div className="flex items-center gap-1">
                     <DollarSign className="h-3 w-3" />

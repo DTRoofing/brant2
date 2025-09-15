@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Building, MapPin, Calendar, Ruler, DollarSign, Clock, TrendingUp } from "lucide-react"
+import { formatDate } from "@/lib/date-utils"
 
 interface ProjectInfo {
   name: string
@@ -96,7 +97,7 @@ export function EstimateSummary({ projectInfo, summary }: EstimateSummaryProps) 
             {displaySquareFootage()}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>{new Date(projectInfo.date).toLocaleDateString()}</span>
+              <span>{formatDate(projectInfo.date)}</span>
             </div>
           </div>
 

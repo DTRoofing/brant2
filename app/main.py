@@ -2,8 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from app.api.v1.router import api_router
+from app.core.config import settings
 # from app.workers.celery_app import celery_app  # Import to configure Celery client - disabled
 
 # Configure logging
@@ -29,12 +31,28 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Configure CORS with specific origins for security
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Frontend development
+    "http://localhost:3001",  # API development
+    "http://brant-frontend:3000",  # Docker frontend
+    "https://brant-roofing.com",  # Production domain (replace with actual)
+]
+
+# In production, use environment variable for allowed origins
+if os.getenv("PRODUCTION", "false").lower() == "true":
+    allowed_origins = os.getenv("CORS_ORIGINS", "").split(",")
+    allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
+else:
+    allowed_origins = ALLOWED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 app.include_router(api_router, prefix="/api/v1")

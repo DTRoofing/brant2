@@ -48,7 +48,7 @@ class RoofMeasurementService:
             ]
         }
     
-    async def measure_roof_hybrid(self, pdf_path: str) -> Dict[str, Any]:
+    async def measure_roof_hybrid(self, pdf_path: str, relevant_pages: list = None) -> Dict[str, Any]:
         """
         Hybrid approach: Try computer vision first, fallback to AI if needed
         
@@ -59,15 +59,16 @@ class RoofMeasurementService:
             Dictionary with measurement results and roof features
         """
         logger.info(f"Starting hybrid roof measurement: {pdf_path}")
-        
+        logger.info(f"Processing only relevant pages: {relevant_pages}" if relevant_pages else "Processing all pages")
+
         try:
             # Step 1: Try Computer Vision approach first
-            cv_result = await self._measure_roof_cv(pdf_path)
+            cv_result = await self._measure_roof_cv(pdf_path, relevant_pages)
             
             # Step 2: If CV confidence is low, try AI approach
             if cv_result['confidence'] < 0.7:
                 logger.info("CV confidence low, trying AI approach")
-                ai_result = await self._measure_roof_ai(pdf_path)
+                ai_result = await self._measure_roof_ai(pdf_path, relevant_pages)
                 
                 # Step 3: Compare results and choose best
                 if ai_result['confidence'] > cv_result['confidence']:
@@ -98,7 +99,7 @@ class RoofMeasurementService:
                 'error': str(e)
             }
 
-    async def _measure_roof_cv(self, pdf_path: str) -> Dict[str, Any]:
+    async def _measure_roof_cv(self, pdf_path: str, relevant_pages: list = None) -> Dict[str, Any]:
         """
         Computer Vision approach: Measure roof area using scale detection and edge detection
         
@@ -111,9 +112,21 @@ class RoofMeasurementService:
         logger.info(f"CV: Measuring roof from blueprint: {pdf_path}")
         
         try:
-            # Convert PDF to images
-            images = convert_from_path(pdf_path, first_page=1, last_page=5)
-            logger.info(f"CV: Converted PDF to {len(images)} images")
+            # Convert PDF to images - only process relevant pages if specified
+            if relevant_pages:
+                images = []
+                for page_num in relevant_pages[:5]:  # Limit to 5 pages max for memory
+                    try:
+                        page_images = convert_from_path(pdf_path, first_page=page_num, last_page=page_num, dpi=200)  # Lower DPI for memory
+                        if page_images:
+                            images.extend(page_images)
+                    except Exception as e:
+                        logger.warning(f"Failed to convert page {page_num}: {e}")
+            else:
+                # Default: convert first 5 pages with lower DPI
+                images = convert_from_path(pdf_path, first_page=1, last_page=5, dpi=200)
+
+            logger.info(f"CV: Converted {len(images)} relevant pages to images")
             
             total_roof_area = 0
             all_measurements = []
@@ -517,7 +530,7 @@ class RoofMeasurementService:
             logger.warning(f"Rectangular feature detection failed: {e}")
             return []
     
-    async def _measure_roof_ai(self, pdf_path: str) -> Dict[str, Any]:
+    async def _measure_roof_ai(self, pdf_path: str, relevant_pages: list = None) -> Dict[str, Any]:
         """
         AI-Powered approach: Use Claude AI to detect and measure roof areas and features
         

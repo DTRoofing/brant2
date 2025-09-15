@@ -10,6 +10,7 @@ class DocumentType(str, Enum):
     INSPECTION_REPORT = "inspection_report"
     PHOTO = "photo"
     ESTIMATE = "estimate"
+    MCDONALDS_ROOFING = "mcdonalds_roofing"
     UNKNOWN = "unknown"
 
 
@@ -41,6 +42,9 @@ class ExtractedContent(BaseModel):
     entities: List[Dict[str, Any]] = []
     extraction_method: str
     confidence: float
+    metadata: Dict[str, Any] = {}  # For document-specific metadata like McDonald's info
+    roof_features: List[Dict[str, Any]] = []  # Optional roof features
+    verification_result: Dict[str, Any] = {}  # Optional verification data
 
 
 class AIInterpretation(BaseModel):
@@ -55,6 +59,7 @@ class AIInterpretation(BaseModel):
     complexity_factors: List[str] = []
     confidence: float
     interpretation_method: str
+    metadata: Dict[str, Any] = {}  # For document-specific metadata like McDonald's info
 
 
 class ValidatedData(BaseModel):
@@ -77,6 +82,7 @@ class RoofingEstimate(BaseModel):
     confidence_score: float
     created_at: datetime
     processing_metadata: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = {}  # For document-specific metadata like McDonald's info
 
 
 class ProcessingResult(BaseModel):

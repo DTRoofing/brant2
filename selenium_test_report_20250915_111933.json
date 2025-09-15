@@ -1,0 +1,56 @@
+{
+  "test_name": "McDonald's PDF Dashboard Upload (Selenium)",
+  "start_time": "2025-09-15T11:19:01.338478",
+  "status": "failed",
+  "steps": [
+    {
+      "step": "Setup",
+      "status": "success",
+      "timestamp": "2025-09-15T11:19:03.913813"
+    },
+    {
+      "step": "Navigate to Dashboard",
+      "status": "success",
+      "url": "http://localhost:3000/dashboard",
+      "timestamp": "2025-09-15T11:19:07.392999"
+    },
+    {
+      "step": "Upload PDF",
+      "status": "success",
+      "file": "C:\\Development\\Final Build\\brant\\tests\\mcdonalds collection\\24-0014_McDonalds042-3271_smallerset.pdf",
+      "timestamp": "2025-09-15T11:19:14.638544"
+    },
+    {
+      "step": "Navigate to Estimate",
+      "status": "success",
+      "url": "http://localhost:3000/estimate",
+      "timestamp": "2025-09-15T11:19:33.029406"
+    },
+    {
+      "step": "Verify Data",
+      "status": "partial",
+      "mcdonalds_found": false,
+      "data": {
+        "costs_found": [
+          "$0.00",
+          "$0.00",
+          "$0.00",
+          "$0.00",
+          "$0.00"
+        ]
+      },
+      "timestamp": "2025-09-15T11:19:33.111647"
+    }
+  ],
+  "extracted_data": {
+    "costs_found": [
+      "$0.00",
+      "$0.00",
+      "$0.00",
+      "$0.00",
+      "$0.00"
+    ]
+  },
+  "document_id": "7acb5f28-1071-477a-9b97-3f790134518d",
+  "end_time": "2025-09-15T11:19:33.111658"
+}

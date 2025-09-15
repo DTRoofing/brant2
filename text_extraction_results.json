@@ -1,0 +1,63 @@
+{
+  "success": true,
+  "extracted_items": [
+    "Project Number (24-0014)",
+    "Store Number (042-3271)",
+    "Roof Area (4,421 sq ft)",
+    "Total Cost ($86,111.96)"
+  ],
+  "missing_items": [],
+  "mcdonalds_info": {
+    "document_type": "mcdonalds_roofing",
+    "is_blueprint": true,
+    "entities": [
+      {
+        "type": "square_footage",
+        "text": "4,421",
+        "confidence": 0.85
+      },
+      {
+        "type": "project_number",
+        "text": "24-0014",
+        "confidence": 0.9
+      },
+      {
+        "type": "store_number",
+        "text": "042-3271",
+        "confidence": 0.85
+      },
+      {
+        "type": "location",
+        "text": "Denton",
+        "confidence": 0.8
+      },
+      {
+        "type": "project_number",
+        "text": "24-0014",
+        "confidence": 1.0
+      },
+      {
+        "type": "store_number",
+        "text": "042-3271",
+        "confidence": 1.0
+      },
+      {
+        "type": "location",
+        "text": "Denton, TX",
+        "confidence": 0.95
+      },
+      {
+        "type": "address",
+        "text": "Loop 288",
+        "confidence": 0.9
+      }
+    ],
+    "square_footage": "4421",
+    "project_number": "24-0014",
+    "store_number": "042-3271",
+    "location": "Denton, TX",
+    "address": "Loop 288"
+  },
+  "measurements_count": 14,
+  "costs_found": 26
+}

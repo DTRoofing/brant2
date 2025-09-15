@@ -1,6 +1,6 @@
 "use client"
 
-import { PDFPipelineUpload } from "@/components/dashboard/pdf-pipeline-upload"
+import { UnifiedUpload } from "@/components/shared/unified-upload"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Brain, Eye, Zap, Calculator, CheckCircle } from "lucide-react"
@@ -62,7 +62,21 @@ export default function UploadPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Upload Component */}
             <div className="lg:col-span-2">
-              <PDFPipelineUpload />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upload Document</CardTitle>
+                  <CardDescription>
+                    Upload PDFs for comprehensive AI-powered processing
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <UnifiedUpload 
+                    showPipelineStages={true}
+                    redirectToEstimate={true}
+                    redirectToProcessing={false}
+                  />
+                </CardContent>
+              </Card>
             </div>
 
             {/* Features Panel */}

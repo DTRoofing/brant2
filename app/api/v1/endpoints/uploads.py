@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.file_validation import validate_upload, sanitize_filename
 from app.models.core import Document, ProcessingStatus
 from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
 from ..schemas.upload import DocumentCreateResponse, DocumentDetailResponse
@@ -40,6 +41,9 @@ async def upload_document(
             detail=f"File size exceeds maximum allowed size of {settings.MAX_FILE_SIZE / (1024*1024):.1f}MB"
         )
 
+    # Sanitize filename for security
+    sanitized_filename = await sanitize_filename(file.filename)
+    
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -73,7 +77,28 @@ async def upload_document(
                 await out_file.write(chunk)
         
         file_size = total_size
+        
+        # Validate the uploaded file
+        is_valid, error_message = await validate_upload(
+            file_path,
+            file.filename,
+            file.content_type
+        )
+        
+        if not is_valid:
+            # Delete invalid file
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"Invalid PDF file: {error_message}"
+            )
+            
+    except HTTPException:
+        raise
     except Exception as e:
+        # Clean up on error
+        if file_path.exists():
+            file_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"There was an error uploading the file: {e}",
@@ -104,12 +129,14 @@ async def upload_document(
         )
     
     # Return document data without refresh
+    from datetime import datetime
     return {
         "id": str(unique_id),
         "filename": file.filename,
         "file_path": str(file_path),
         "file_size": file_size,
-        "processing_status": "PENDING",
+        "processing_status": ProcessingStatus.PENDING.value,
+        "created_at": datetime.utcnow(),
         "message": "Document uploaded and processing started"
     }
 

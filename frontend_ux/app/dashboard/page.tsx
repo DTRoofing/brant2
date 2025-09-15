@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, TrendingUp, Clock, DollarSign, Bot, Download, Plus } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { UploadZone } from "@/components/dashboard/upload-zone"
-import { PDFPipelineUpload } from "@/components/dashboard/pdf-pipeline-upload"
+import { UnifiedUpload } from "@/components/shared/unified-upload"
 import { RecentEstimates } from "@/components/dashboard/recent-estimates"
 
 export default function DashboardPage() {
@@ -104,7 +103,10 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <UploadZone />
+                <UnifiedUpload 
+                  showPipelineStages={false}
+                  redirectToProcessing={true}
+                />
 
                 {/* AI Features Highlight */}
                 <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
