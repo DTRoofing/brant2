@@ -43,6 +43,7 @@ class Document(Base):
     # Relationships
     project = relationship("Project", back_populates="documents")
     measurements = relationship("Measurement", back_populates="document")
+    processing_results = relationship("ProcessingResults", back_populates="document", uselist=False)
 
 
 class Measurement(Base):

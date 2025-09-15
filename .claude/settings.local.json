@@ -46,7 +46,12 @@
       "Bash(gcloud ai document-processors list:*)",
       "Bash(gcloud beta ai document-processors list:*)",
       "Read(//c/Users/brian/OneDrive/Documentos/ShareX/Screenshots/2025-09/**)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git log:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

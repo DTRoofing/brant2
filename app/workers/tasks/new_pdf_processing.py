@@ -64,10 +64,22 @@ def process_pdf_with_pipeline(self, document_id: str):
     
     with SessionLocal() as db:
         try:
-            # Get document from database
-            document = db.query(Document).filter(Document.id == uuid.UUID(document_id)).first()
+            # Get document from database with lock to prevent race conditions
+            document = db.query(Document).filter(
+                Document.id == uuid.UUID(document_id)
+            ).with_for_update().first()
+            
             if not document:
                 raise ValueError(f"Document {document_id} not found")
+            
+            # Check if already processing or completed to prevent duplicate processing
+            if document.processing_status in [ProcessingStatus.PROCESSING, ProcessingStatus.COMPLETED]:
+                logger.warning(f"Document {document_id} already {document.processing_status.value}, skipping")
+                return {
+                    "document_id": document_id,
+                    "status": document.processing_status.value,
+                    "message": f"Document already {document.processing_status.value}"
+                }
             
             # Update status to processing
             document.processing_status = ProcessingStatus.PROCESSING
@@ -82,11 +94,41 @@ def process_pdf_with_pipeline(self, document_id: str):
             logger.info(f"Processing {file_path} with new pipeline")
             result = asyncio.run(pdf_pipeline.process_document(str(file_path), document_id))
             
-            # Store results in database (you'll need to create tables for this)
-            # For now, just log the results
+            # Store results in database
+            from app.models.results import ProcessingResults
+            
             logger.info(f"Pipeline completed for document {document_id}")
             logger.info(f"Stages completed: {result.stages_completed}")
             logger.info(f"Final estimate: {result.final_estimate}")
+            
+            # Create or update processing results
+            existing_results = db.query(ProcessingResults).filter(
+                ProcessingResults.document_id == uuid.UUID(document_id)
+            ).first()
+            
+            if existing_results:
+                # Update existing results
+                processing_results = existing_results
+            else:
+                # Create new results
+                processing_results = ProcessingResults(document_id=uuid.UUID(document_id))
+                db.add(processing_results)
+            
+            # Populate results from pipeline
+            if result.final_estimate:
+                processing_results.roof_area_sqft = result.final_estimate.total_area_sqft
+                processing_results.estimated_cost = result.final_estimate.estimated_cost
+                processing_results.confidence_score = result.final_estimate.confidence_score
+                processing_results.materials = [m.dict() for m in result.final_estimate.materials_needed] if result.final_estimate.materials_needed else []
+                processing_results.processing_time_seconds = result.processing_time_seconds
+                processing_results.stages_completed = [stage.value for stage in result.stages_completed]
+                processing_results.extraction_method = 'hybrid'  # or detect from result
+                
+                # Store metadata
+                if hasattr(result.final_estimate, 'processing_metadata'):
+                    metadata = result.final_estimate.processing_metadata
+                    processing_results.warnings = metadata.get('warnings', [])
+                    processing_results.errors = metadata.get('errors', [])
             
             # Update document status
             if result.current_stage == ProcessingStatus.COMPLETED:
@@ -109,8 +151,11 @@ def process_pdf_with_pipeline(self, document_id: str):
         except Exception as e:
             logger.error(f"Pipeline processing failed for document {document_id}: {e}")
             
-            # Update document with error
-            document = db.query(Document).filter(Document.id == uuid.UUID(document_id)).first()
+            # Update document with error (with lock)
+            document = db.query(Document).filter(
+                Document.id == uuid.UUID(document_id)
+            ).with_for_update().first()
+            
             if document:
                 document.processing_status = ProcessingStatus.FAILED
                 document.processing_error = str(e)

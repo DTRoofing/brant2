@@ -86,9 +86,16 @@ async def get_processing_results(
     """
     Get the processing results for a completed document
     """
+    from sqlalchemy import select
+    from app.models.results import ProcessingResults
+    
     try:
         doc_uuid = uuid.UUID(document_id)
-        document = await db.get(Document, doc_uuid)
+        
+        # Query document with results
+        stmt = select(Document).where(Document.id == doc_uuid)
+        result = await db.execute(stmt)
+        document = result.scalar_one_or_none()
         
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
@@ -99,42 +106,47 @@ async def get_processing_results(
                 detail=f"Document processing not completed. Current status: {document.processing_status.value}"
             )
         
-        # For now, return basic info with roof features. In production, you'd store and retrieve the full results
+        # Query actual results from database
+        results_stmt = select(ProcessingResults).where(ProcessingResults.document_id == doc_uuid)
+        results_result = await db.execute(results_stmt)
+        processing_results = results_result.scalar_one_or_none()
+        
+        if not processing_results:
+            # Fallback for documents processed before this update
+            return {
+                "document_id": document_id,
+                "status": "completed",
+                "message": "Processing completed (legacy - no detailed results)",
+                "file_path": document.file_path,
+                "processed_at": document.updated_at.isoformat(),
+                "results": {
+                    "roof_area_sqft": 0,
+                    "materials": [],
+                    "estimated_cost": 0,
+                    "confidence": 0,
+                    "roof_features": [],
+                    "complexity_factors": []
+                }
+            }
+        
+        # Return actual results from database
         return {
             "document_id": document_id,
             "status": "completed",
             "message": "Processing completed successfully",
             "file_path": document.file_path,
-            "processed_at": document.updated_at.isoformat(),
+            "processed_at": processing_results.created_at.isoformat(),
             "results": {
-                "roof_area_sqft": 2500,
-                "materials": ["membrane", "insulation"],
-                "estimated_cost": 15000,
-                "confidence": 0.85,
-                "roof_features": [
-                    {
-                        "type": "exhaust_port",
-                        "count": 2,
-                        "impact": "medium",
-                        "description": "Exhaust ports require careful sealing and flashing"
-                    },
-                    {
-                        "type": "walkway",
-                        "count": 1,
-                        "impact": "low",
-                        "description": "Walkways provide access but may require additional materials"
-                    }
-                ],
-                "complexity_factors": [
-                    "Multiple exhaust ports require specialized flashing",
-                    "Walkway access affects material delivery"
-                ],
-                "verification": {
-                    "ocr_total": 2400,
-                    "blueprint_total": 2500,
-                    "difference_percent": 4.2,
-                    "recommendation": "use_blueprint"
-                }
+                "roof_area_sqft": processing_results.roof_area_sqft or 0,
+                "materials": processing_results.materials or [],
+                "estimated_cost": processing_results.estimated_cost or 0,
+                "confidence": processing_results.confidence_score or 0,
+                "roof_features": processing_results.roof_features or [],
+                "complexity_factors": processing_results.complexity_factors or [],
+                "ai_interpretation": processing_results.ai_interpretation,
+                "recommendations": processing_results.recommendations or [],
+                "processing_time_seconds": processing_results.processing_time_seconds,
+                "extraction_method": processing_results.extraction_method
             }
         }
         
