@@ -48,7 +48,12 @@
       "Read(//c/Users/brian/OneDrive/Documentos/ShareX/Screenshots/2025-09/**)",
       "Bash(git add:*)",
       "Bash(git pull:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git log:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

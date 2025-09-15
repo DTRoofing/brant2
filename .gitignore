@@ -48,6 +48,13 @@ nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
+
+# Test files
+tests/integration/test_*.py
+tests/scripts/*.py
+test_*.py
+check_*.py
+create_*.py
 .hypothesis/
 .pytest_cache/
 

@@ -31,6 +31,14 @@ async def upload_document(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Only PDF files are supported.",
         )
+    
+    # Check file size before processing
+    # First check Content-Length header if available
+    if file.size and file.size > settings.MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size exceeds maximum allowed size of {settings.MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
 
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -40,24 +48,60 @@ async def upload_document(
     file_path = upload_dir / safe_filename
 
     try:
+        # Stream file to disk with size validation
+        total_size = 0
+        chunk_size = 1024 * 1024  # 1MB chunks
+        
         async with aiofiles.open(file_path, "wb") as out_file:
-            content = await file.read()
-            await out_file.write(content)
-        file_size = file_path.stat().st_size
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                
+                total_size += len(chunk)
+                
+                # Check size during streaming
+                if total_size > settings.MAX_FILE_SIZE:
+                    # Delete partial file
+                    await out_file.close()
+                    file_path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File size exceeds maximum allowed size of {settings.MAX_FILE_SIZE / (1024*1024):.1f}MB"
+                    )
+                
+                await out_file.write(chunk)
+        
+        file_size = total_size
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"There was an error uploading the file: {e}",
         )
 
-    new_document = Document(
-        id=unique_id, filename=file.filename, file_path=str(file_path), file_size=file_size
-    )
-    db.add(new_document)
-    await db.commit()
+    # Use transaction for database operations
+    from app.core.transactions import async_transaction
     
-    # Queue background processing (after commit)
-    process_pdf_with_pipeline.delay(document_id=str(unique_id))
+    try:
+        async with async_transaction(db) as session:
+            new_document = Document(
+                id=unique_id, 
+                filename=file.filename, 
+                file_path=str(file_path), 
+                file_size=file_size
+            )
+            session.add(new_document)
+            # Transaction commits automatically on success
+        
+        # Queue background processing only after successful commit
+        process_pdf_with_pipeline.delay(document_id=str(unique_id))
+    except Exception as e:
+        # Clean up uploaded file if database operation fails
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save document record: {e}"
+        )
     
     # Return document data without refresh
     return {
