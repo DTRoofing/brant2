@@ -1,5 +1,5 @@
 """
-Combined Qwen and YOLO processing pipeline for schematic and blueprint analysis.
+Combined Claude and YOLO processing pipeline for schematic and blueprint analysis.
 """
 
 import logging
@@ -13,7 +13,7 @@ import fitz  # PyMuPDF
 import tempfile
 import os
 
-from app.services.ai_models.qwen_service import QwenService, QwenExtractionResult
+from app.services.ai_models.claude_technical_service import ClaudeTechnicalService, ClaudeTechnicalExtractionResult
 from app.services.ai_models.yolo_service import YOLOService, YOLODetectionResult
 from app.models.core import ProcessingResult, ProcessingStage
 from app.core.config import settings
@@ -21,11 +21,11 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-class QwenYOLOProcessor:
-    """Combined processor for Qwen text extraction and YOLO visual detection"""
+class ClaudeYOLOProcessor:
+    """Combined processor for Claude text extraction and YOLO visual detection"""
     
     def __init__(self):
-        self.qwen_service = QwenService(api_key=settings.QWEN_API_KEY)
+        self.claude_service = ClaudeTechnicalService()
         self.yolo_service = YOLOService()
         self.initialized = False
         
@@ -34,7 +34,7 @@ class QwenYOLOProcessor:
         if not self.initialized:
             await self.yolo_service.initialize()
             self.initialized = True
-            logger.info("QwenYOLO processor initialized")
+            logger.info("ClaudeYOLO processor initialized")
     
     async def process_schematic_pdf(
         self,
@@ -44,7 +44,7 @@ class QwenYOLOProcessor:
         processing_options: Optional[Dict[str, Any]] = None
     ) -> ProcessingResult:
         """
-        Process schematic or blueprint PDF using both Qwen and YOLO.
+        Process schematic or blueprint PDF using both Claude and YOLO.
         
         Args:
             pdf_content: PDF file content
@@ -64,15 +64,15 @@ class QwenYOLOProcessor:
             # Initialize services if needed
             await self.initialize()
             
-            # Stage 1: Qwen Text Extraction
-            logger.info(f"Starting Qwen text extraction for document {document_id}")
+            # Stage 1: Claude Text Extraction
+            logger.info(f"Starting Claude text extraction for document {document_id}")
             processing_stages.append({
-                "stage": "qwen_text_extraction",
+                "stage": "claude_text_extraction",
                 "status": "in_progress",
                 "started_at": datetime.now().isoformat()
             })
             
-            qwen_result = await self.qwen_service.extract_text_from_document(
+            claude_result = await self.claude_service.extract_text_from_document(
                 pdf_content,
                 document_type=document_type,
                 extract_measurements=True,
@@ -84,10 +84,10 @@ class QwenYOLOProcessor:
                 "status": "completed",
                 "completed_at": datetime.now().isoformat(),
                 "result_summary": {
-                    "text_extracted": len(qwen_result.text_content) > 0,
-                    "measurements_found": len(qwen_result.measurements),
-                    "specifications_found": len(qwen_result.specifications),
-                    "annotations_found": len(qwen_result.annotations)
+                    "text_extracted": len(claude_result.text_content) > 0,
+                    "measurements_found": len(claude_result.measurements),
+                    "specifications_found": len(claude_result.specifications),
+                    "annotations_found": len(claude_result.annotations)
                 }
             })
             
@@ -151,7 +151,7 @@ class QwenYOLOProcessor:
             for page_result in yolo_results:
                 measurements = await self.yolo_service.extract_measurements_from_detections(
                     page_result["result"],
-                    scale_info=self._extract_scale_info(qwen_result)
+                    scale_info=self._extract_scale_info(claude_result)
                 )
                 if measurements["dimensions"] or measurements["areas"] or measurements["slopes"]:
                     visual_measurements.append({
@@ -168,7 +168,7 @@ class QwenYOLOProcessor:
             })
             
             # Stage 5: Data Synthesis
-            logger.info("Synthesizing data from Qwen and YOLO results")
+            logger.info("Synthesizing data from Claude and YOLO results")
             processing_stages.append({
                 "stage": "data_synthesis",
                 "status": "in_progress",
@@ -176,7 +176,7 @@ class QwenYOLOProcessor:
             })
             
             synthesized_data = await self._synthesize_results(
-                qwen_result,
+                claude_result,
                 yolo_results,
                 visual_measurements
             )
@@ -203,7 +203,7 @@ class QwenYOLOProcessor:
             
             # Calculate overall confidence
             confidence_scores = [
-                qwen_result.confidence_score,
+                claude_result.confidence_score,
                 *[r["result"].confidence_score for r in yolo_results]
             ]
             overall_confidence = sum(confidence_scores) / len(confidence_scores)
@@ -214,15 +214,15 @@ class QwenYOLOProcessor:
             return ProcessingResult(
                 document_id=document_id,
                 status="completed",
-                stage="qwen_yolo_analysis_complete",
+                stage="claude_yolo_analysis_complete",
                 result={
                     "document_type": document_type,
                     "text_extraction": {
-                        "content": qwen_result.text_content,
-                        "technical_terms": qwen_result.technical_terms,
-                        "measurements": qwen_result.measurements,
-                        "specifications": qwen_result.specifications,
-                        "annotations": qwen_result.annotations
+                        "content": claude_result.text_content,
+                        "technical_terms": claude_result.technical_terms,
+                        "measurements": claude_result.measurements,
+                        "specifications": claude_result.specifications,
+                        "annotations": claude_result.annotations
                     },
                     "visual_detection": {
                         "total_pages": len(yolo_results),
@@ -241,17 +241,17 @@ class QwenYOLOProcessor:
                 errors=errors,
                 warnings=warnings,
                 metadata={
-                    "processor": "qwen_yolo",
-                    "qwen_version": qwen_result.metadata.get("model_version"),
+                    "processor": "claude_yolo",
+                    "claude_version": claude_result.metadata.get("model_version"),
                     "yolo_version": yolo_results[0]["result"].metadata.get("model_version") if yolo_results else None,
                     "timestamp": datetime.now().isoformat()
                 }
             )
             
         except Exception as e:
-            logger.error(f"Error in QwenYOLO processing: {str(e)}")
+            logger.error(f"Error in ClaudeYOLO processing: {str(e)}")
             errors.append({
-                "stage": "qwen_yolo_processing",
+                "stage": "claude_yolo_processing",
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             })
@@ -259,7 +259,7 @@ class QwenYOLOProcessor:
             return ProcessingResult(
                 document_id=document_id,
                 status="failed",
-                stage="qwen_yolo_processing",
+                stage="claude_yolo_processing",
                 result={},
                 confidence_score=0.0,
                 processing_time_seconds=(datetime.now() - start_time).total_seconds(),
@@ -305,8 +305,8 @@ class QwenYOLOProcessor:
         
         return images
     
-    def _extract_scale_info(self, qwen_result: QwenExtractionResult) -> Dict[str, Any]:
-        """Extract scale information from Qwen results"""
+    def _extract_scale_info(self, claude_result: ClaudeTechnicalExtractionResult) -> Dict[str, Any]:
+        """Extract scale information from Claude results"""
         scale_info = {
             "scale": None,
             "scale_factor": 1.0,
@@ -314,7 +314,7 @@ class QwenYOLOProcessor:
         }
         
         # Look for scale in annotations
-        for annotation in qwen_result.annotations:
+        for annotation in claude_result.annotations:
             text = annotation.get("text", "").lower()
             if "scale" in text and "=" in text:
                 # Parse scale like "1/4\" = 1'-0\""
@@ -331,7 +331,7 @@ class QwenYOLOProcessor:
                     pass
         
         # Also check technical terms
-        for term in qwen_result.technical_terms:
+        for term in claude_result.technical_terms:
             if "scale" in term.get("term", "").lower():
                 context = term.get("context", "")
                 if "=" in context:
@@ -352,15 +352,15 @@ class QwenYOLOProcessor:
     
     async def _synthesize_results(
         self,
-        qwen_result: QwenExtractionResult,
+        claude_result: ClaudeTechnicalExtractionResult,
         yolo_results: List[Dict[str, Any]],
         visual_measurements: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Synthesize results from both Qwen and YOLO"""
+        """Synthesize results from both Claude and YOLO"""
         
         # Combine measurements from both sources
         all_measurements = {
-            "text_based": qwen_result.measurements,
+            "text_based": claude_result.measurements,
             "visual_based": visual_measurements,
             "combined": []
         }
@@ -369,7 +369,7 @@ class QwenYOLOProcessor:
         measurement_map = {}
         
         # Add text-based measurements
-        for measurement in qwen_result.measurements:
+        for measurement in claude_result.measurements:
             key = f"{measurement['type']}_{measurement.get('description', '')}"
             measurement_map[key] = measurement
         
@@ -402,9 +402,9 @@ class QwenYOLOProcessor:
         
         # Extract roof components
         roof_components = {
-            "primary_structure": self._identify_primary_structure(qwen_result, yolo_results),
+            "primary_structure": self._identify_primary_structure(claude_result, yolo_results),
             "features": self._extract_roof_features(yolo_results),
-            "materials": qwen_result.specifications,
+            "materials": claude_result.specifications,
             "special_elements": self._identify_special_elements(yolo_results)
         }
         
@@ -420,13 +420,13 @@ class QwenYOLOProcessor:
             "measurements": all_measurements,
             "roof_components": roof_components,
             "element_relationships": element_relationships,
-            "annotations": qwen_result.annotations,
-            "technical_summary": self._generate_technical_summary(qwen_result, yolo_results)
+            "annotations": claude_result.annotations,
+            "technical_summary": self._generate_technical_summary(claude_result, yolo_results)
         }
     
     def _identify_primary_structure(
         self,
-        qwen_result: QwenExtractionResult,
+        claude_result: ClaudeTechnicalExtractionResult,
         yolo_results: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Identify primary roof structure from combined results"""
@@ -449,9 +449,9 @@ class QwenYOLOProcessor:
                 if "sections" in outline.attributes:
                     structure["sections"] = max(structure["sections"], outline.attributes["sections"])
         
-        # Check Qwen technical terms
+        # Check Claude technical terms
         roof_types = ["hip", "gable", "mansard", "flat", "shed", "gambrel"]
-        for term in qwen_result.technical_terms:
+        for term in claude_result.technical_terms:
             term_lower = term["term"].lower()
             for roof_type in roof_types:
                 if roof_type in term_lower:
@@ -519,20 +519,20 @@ class QwenYOLOProcessor:
     
     def _generate_technical_summary(
         self,
-        qwen_result: QwenExtractionResult,
+        claude_result: ClaudeTechnicalExtractionResult,
         yolo_results: List[Dict[str, Any]]
     ) -> str:
         """Generate a technical summary of the document"""
         
         # Count key elements
-        total_measurements = len(qwen_result.measurements)
-        total_specifications = len(qwen_result.specifications)
+        total_measurements = len(claude_result.measurements)
+        total_specifications = len(claude_result.specifications)
         total_visual_elements = sum(
             len(r["result"].detected_elements) for r in yolo_results
         )
         
         # Find key measurements
-        areas = [m for m in qwen_result.measurements if m["type"] == "area"]
+        areas = [m for m in claude_result.measurements if m["type"] == "area"]
         total_area = sum(m["value"] for m in areas) if areas else 0
         
         summary = f"""Technical Document Analysis Summary:
@@ -546,7 +546,7 @@ class QwenYOLOProcessor:
             summary += f"- Total Roof Area: {total_area} sq ft\n"
         
         # Add roof type if identified
-        for term in qwen_result.technical_terms:
+        for term in claude_result.technical_terms:
             if "roof" in term["term"].lower():
                 summary += f"- Roof Type: {term['term']}\n"
                 break

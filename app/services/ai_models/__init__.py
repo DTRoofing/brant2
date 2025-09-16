@@ -1,11 +1,11 @@
 """AI model services for document processing"""
 
-from .qwen_service import QwenService, QwenExtractionResult
+from .claude_technical_service import ClaudeTechnicalService, ClaudeTechnicalExtractionResult
 from .yolo_service import YOLOService, YOLODetectionResult, DetectedElement, BoundingBox
 
 __all__ = [
-    "QwenService",
-    "QwenExtractionResult",
+    "ClaudeTechnicalService",
+    "ClaudeTechnicalExtractionResult",
     "YOLOService", 
     "YOLODetectionResult",
     "DetectedElement",

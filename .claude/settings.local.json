@@ -81,7 +81,9 @@
       "Bash(taskkill:*)",
       "Bash(docker:*)",
       "Bash(chmod:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git config:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []

@@ -172,7 +172,7 @@ export default function UploadPage() {
                   <div>
                     <CardTitle>Advanced Schematic & Blueprint Analysis</CardTitle>
                     <CardDescription>
-                      Specialized AI processing with Qwen and YOLO models
+                      Specialized AI processing with Claude and YOLO models
                     </CardDescription>
                   </div>
                 </div>
@@ -187,7 +187,7 @@ export default function UploadPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                 <div className="flex items-start gap-3">
-                  <Badge className="mt-0.5" variant="secondary">Qwen</Badge>
+                  <Badge className="mt-0.5" variant="secondary">Claude</Badge>
                   <div>
                     <h4 className="font-medium text-sm">Advanced Text Extraction</h4>
                     <p className="text-xs text-muted-foreground mt-1">

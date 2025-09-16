@@ -120,17 +120,17 @@ def process_pdf_with_pipeline(self, document_id: str, processing_options: Dict[s
 
         logger.info(f"Processing {file_path} with new pipeline")
         
-        # Check if we should use the Qwen/YOLO processor
-        if processing_mode == "qwen_yolo":
-            logger.info(f"Using Qwen/YOLO processor for document {document_id}")
-            from app.services.processing_stages.qwen_yolo_processor import QwenYOLOProcessor
+        # Check if we should use the Claude/YOLO processor
+        if processing_mode == "claude_yolo":
+            logger.info(f"Using Claude/YOLO processor for document {document_id}")
+            from app.services.processing_stages.claude_yolo_processor import ClaudeYOLOProcessor
             
             # Read PDF content
             with open(file_path, 'rb') as f:
                 pdf_content = f.read()
             
-            # Process with Qwen/YOLO
-            processor = QwenYOLOProcessor()
+            # Process with Claude/YOLO
+            processor = ClaudeYOLOProcessor()
             result = asyncio.run(processor.process_schematic_pdf(
                 pdf_content,
                 document_id,
@@ -174,14 +174,14 @@ def process_pdf_with_pipeline(self, document_id: str, processing_options: Dict[s
             else:
                 logger.info(f"Updating existing ProcessingResults for document {document_id}")
             
-            # Handle Qwen/YOLO results differently
-            if processing_mode == "qwen_yolo" and hasattr(result, 'result'):
-                # Extract data from Qwen/YOLO result format
-                qwen_yolo_data = result.result
+            # Handle Claude/YOLO results differently
+            if processing_mode == "claude_yolo" and hasattr(result, 'result'):
+                # Extract data from Claude/YOLO result format
+                claude_yolo_data = result.result
                 
                 # Roof analysis data
-                if "roofing_analysis" in qwen_yolo_data:
-                    analysis = qwen_yolo_data["roofing_analysis"]
+                if "roofing_analysis" in claude_yolo_data:
+                    analysis = claude_yolo_data["roofing_analysis"]
                     chars = analysis.get("roof_characteristics", {})
                     processing_results.roof_area_sqft = chars.get("total_area", 0)
                     
@@ -213,14 +213,14 @@ def process_pdf_with_pipeline(self, document_id: str, processing_options: Dict[s
                     # Special considerations as recommendations
                     processing_results.recommendations = analysis.get("special_considerations", [])
                 
-                # Store full Qwen/YOLO data as AI interpretation
+                # Store full Claude/YOLO data as AI interpretation
                 import json
-                processing_results.ai_interpretation = json.dumps(qwen_yolo_data)
+                processing_results.ai_interpretation = json.dumps(claude_yolo_data)
                 
                 # Confidence and processing time
                 processing_results.confidence_score = result.confidence_score
                 processing_results.processing_time_seconds = result.processing_time_seconds
-                processing_results.extraction_method = "qwen_yolo"
+                processing_results.extraction_method = "claude_yolo"
                 
                 # Calculate estimated cost based on area and complexity
                 if processing_results.roof_area_sqft:
@@ -278,8 +278,8 @@ def process_pdf_with_pipeline(self, document_id: str, processing_options: Dict[s
                 processing_results.stages_completed = [stage.value for stage in result.stages_completed]
 
             # Update final document status
-            if processing_mode == "qwen_yolo":
-                # For Qwen/YOLO, check status field
+            if processing_mode == "claude_yolo":
+                # For Claude/YOLO, check status field
                 if result.status == "completed":
                     document.processing_status = ProcessingStatus.COMPLETED
                     document.processing_error = None
@@ -314,11 +314,11 @@ def process_pdf_with_pipeline(self, document_id: str, processing_options: Dict[s
         logger.error(f"Failed to save results for {document_id}: {e}")
         raise self.retry(exc=e, countdown=2 ** self.request.retries)
 
-    if processing_mode == "qwen_yolo":
+    if processing_mode == "claude_yolo":
         return {
             "document_id": document_id,
             "status": result.status,
-            "processing_mode": "qwen_yolo",
+            "processing_mode": "claude_yolo",
             "stages_completed": result.result.get("processing_stages", []),
             "processing_time_seconds": result.processing_time_seconds,
             "errors": result.errors

@@ -32,7 +32,7 @@ export default function SchematicUploadPage() {
         <AlertDescription>
           This upload form uses specialized AI models:
           <ul className="mt-2 space-y-1 list-disc list-inside">
-            <li><strong>Qwen:</strong> Advanced text extraction and understanding from technical documents</li>
+            <li><strong>Claude:</strong> Advanced text extraction and understanding from technical documents</li>
             <li><strong>YOLO:</strong> Visual element detection for identifying roof components, measurements, and annotations</li>
           </ul>
         </AlertDescription>

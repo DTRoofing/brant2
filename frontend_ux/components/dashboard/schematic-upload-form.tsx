@@ -37,7 +37,7 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
     const formData = new FormData();
     formData.append("file", file);
     formData.append("document_type", "schematic");
-    formData.append("processing_mode", "qwen_yolo");
+    formData.append("processing_mode", "claude_yolo");
     if (projectId) {
       formData.append("project_id", projectId);
     }
@@ -61,14 +61,14 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
 
       toast.success("File uploaded successfully");
 
-      // Start processing with Qwen/YOLO pipeline
+      // Start processing with Claude/YOLO pipeline
       const processResponse = await fetch(`/api/v1/pipeline/process/${docId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          processing_mode: "qwen_yolo",
+          processing_mode: "claude_yolo",
           extract_visual_elements: true,
           extract_text_annotations: true,
           extract_measurements: true,
@@ -150,7 +150,7 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
 
   const getProcessingStageDisplay = () => {
     const stages = {
-      "qwen_text_extraction": "Extracting text with Qwen",
+      "claude_text_extraction": "Extracting text with Claude",
       "yolo_detection": "Detecting visual elements with YOLO",
       "measurement_extraction": "Extracting measurements",
       "data_synthesis": "Synthesizing data",
@@ -168,7 +168,7 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
           Upload Schematic or Blueprint
         </CardTitle>
         <CardDescription>
-          Upload PDF schematics or blueprints for AI-powered analysis using Qwen and YOLO models
+          Upload PDF schematics or blueprints for AI-powered analysis using Claude and YOLO models
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -199,7 +199,7 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
                   Select File
                 </Button>
                 <div className="flex gap-2 mt-2">
-                  <Badge variant="secondary">Qwen Text Analysis</Badge>
+                  <Badge variant="secondary">Claude Text Analysis</Badge>
                   <Badge variant="secondary">YOLO Visual Detection</Badge>
                 </div>
               </>
@@ -223,7 +223,7 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
                   </p>
                 )}
                 <div className="flex gap-2 justify-center">
-                  <Badge variant="default" className="animate-pulse">Qwen Active</Badge>
+                  <Badge variant="default" className="animate-pulse">Claude Active</Badge>
                   <Badge variant="default" className="animate-pulse">YOLO Active</Badge>
                 </div>
               </div>

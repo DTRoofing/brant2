@@ -1,5 +1,5 @@
 """
-Qwen model service for advanced text extraction and understanding from technical documents.
+Claude AI service for advanced text extraction and understanding from technical documents.
 """
 
 import logging
@@ -14,8 +14,8 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 logger = logging.getLogger(__name__)
 
 @dataclass
-class QwenExtractionResult:
-    """Result from Qwen text extraction"""
+class ClaudeTechnicalExtractionResult:
+    """Result from Claude technical document extraction"""
     text_content: str
     technical_terms: List[Dict[str, Any]]
     measurements: List[Dict[str, Any]]
@@ -26,19 +26,19 @@ class QwenExtractionResult:
     metadata: Dict[str, Any]
 
 
-class QwenService:
-    """Service for interacting with Qwen model for technical document analysis"""
+class ClaudeTechnicalService:
+    """Service for interacting with Claude AI for technical document analysis"""
     
-    def __init__(self, api_key: Optional[str] = None, api_endpoint: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None):
         """
-        Initialize Qwen service.
+        Initialize Claude technical service.
         
         Args:
-            api_key: API key for Qwen service
-            api_endpoint: Custom API endpoint (optional)
+            api_key: Anthropic API key for Claude
         """
-        self.api_key = api_key
-        self.api_endpoint = api_endpoint or "https://api.qwen.ai/v1"
+        from app.core.config import settings
+        self.api_key = api_key or settings.ANTHROPIC_API_KEY
+        self.api_endpoint = "https://api.anthropic.com/v1/messages"
         self.client = httpx.AsyncClient(timeout=120.0)
         
     async def __aenter__(self):
@@ -55,9 +55,9 @@ class QwenService:
         extract_measurements: bool = True,
         extract_specifications: bool = True,
         extract_annotations: bool = True
-    ) -> QwenExtractionResult:
+    ) -> ClaudeTechnicalExtractionResult:
         """
-        Extract text and structured data from technical documents using Qwen.
+        Extract text and structured data from technical documents using Claude.
         
         Args:
             document_content: PDF content as bytes
@@ -67,15 +67,16 @@ class QwenService:
             extract_annotations: Whether to extract annotations
             
         Returns:
-            QwenExtractionResult with extracted data
+            ClaudeTechnicalExtractionResult with extracted data
         """
         start_time = datetime.now()
         
         try:
-            # Prepare the request for Qwen API
+            # Prepare the request for Claude API
             headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
             }
             
             # Create the prompt for technical document analysis
@@ -87,14 +88,14 @@ class QwenService:
             )
             
             # For now, we'll simulate the API call
-            # In production, this would be replaced with actual Qwen API integration
-            logger.info(f"Processing {document_type} document with Qwen model")
+            # In production, this would be integrated with actual Claude API
+            logger.info(f"Processing {document_type} document with Claude AI")
             
             # Simulate processing delay
             await asyncio.sleep(2.0)
             
             # Mock extracted data structure
-            result = QwenExtractionResult(
+            result = ClaudeTechnicalExtractionResult(
                 text_content=self._extract_text_content(document_content),
                 technical_terms=self._extract_technical_terms(),
                 measurements=self._extract_measurements() if extract_measurements else [],
@@ -103,17 +104,17 @@ class QwenService:
                 confidence_score=0.95,
                 processing_time=(datetime.now() - start_time).total_seconds(),
                 metadata={
-                    "model_version": "qwen-technical-v1",
+                    "model_version": "claude-3-sonnet",
                     "document_type": document_type,
                     "extraction_timestamp": datetime.now().isoformat()
                 }
             )
             
-            logger.info(f"Qwen extraction completed in {result.processing_time:.2f}s")
+            logger.info(f"Claude extraction completed in {result.processing_time:.2f}s")
             return result
             
         except Exception as e:
-            logger.error(f"Error during Qwen extraction: {str(e)}")
+            logger.error(f"Error during Claude extraction: {str(e)}")
             raise
     
     def _create_technical_analysis_prompt(
@@ -299,7 +300,7 @@ class QwenService:
     
     async def analyze_roof_system(
         self,
-        extraction_result: QwenExtractionResult
+        extraction_result: ClaudeTechnicalExtractionResult
     ) -> Dict[str, Any]:
         """
         Analyze extracted data to understand the complete roof system.
