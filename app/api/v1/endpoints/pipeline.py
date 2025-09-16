@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import List, Optional
 import uuid
 from pathlib import Path
+from pydantic import BaseModel
 
 from app.models.processing import ProcessingResult, ProcessingStage
 from app.services.pdf_pipeline import pdf_pipeline
@@ -10,6 +11,14 @@ from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.core import Document, ProcessingStatus
 
+
+class ProcessingRequest(BaseModel):
+    processing_mode: str = "standard"
+    extract_visual_elements: bool = False
+    extract_text_annotations: bool = False
+    extract_measurements: bool = False
+
+
 router = APIRouter()
 
 
@@ -17,10 +26,15 @@ router = APIRouter()
 async def start_pipeline_processing(
     document_id: str,
     background_tasks: BackgroundTasks,
+    request: ProcessingRequest = ProcessingRequest(),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Start processing a document with the new pipeline
+    
+    Args:
+        document_id: Document UUID
+        request: Processing request with mode and options
     """
     try:
         # Validate document exists
@@ -33,14 +47,23 @@ async def start_pipeline_processing(
         if document.processing_status == ProcessingStatus.PROCESSING:
             raise HTTPException(status_code=400, detail="Document is already being processed")
         
-        # Start background processing
-        task = process_pdf_with_pipeline.delay(document_id)
+        # Prepare processing options
+        processing_options = {
+            "mode": request.processing_mode,
+            "extract_visual_elements": request.extract_visual_elements,
+            "extract_text_annotations": request.extract_text_annotations,
+            "extract_measurements": request.extract_measurements
+        }
+        
+        # Start background processing with options
+        task = process_pdf_with_pipeline.delay(document_id, processing_options=processing_options)
         
         return {
             "message": "Pipeline processing started",
             "document_id": document_id,
             "task_id": task.id,
-            "status": "processing"
+            "status": "processing",
+            "processing_mode": request.processing_mode
         }
         
     except ValueError:
@@ -64,9 +87,23 @@ async def get_processing_status(
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
         
+        # Try to get current processing stage from results
+        stage = None
+        if document.processing_status == ProcessingStatus.PROCESSING:
+            from sqlalchemy import select
+            from app.models.results import ProcessingResults
+            
+            results_stmt = select(ProcessingResults).where(ProcessingResults.document_id == doc_uuid)
+            results_result = await db.execute(results_stmt)
+            processing_results = results_result.scalar_one_or_none()
+            
+            if processing_results and processing_results.metadata:
+                stage = processing_results.metadata.get("current_stage")
+        
         return {
             "document_id": document_id,
             "status": document.processing_status.value,
+            "stage": stage,
             "error": document.processing_error,
             "created_at": document.created_at.isoformat(),
             "updated_at": document.updated_at.isoformat()

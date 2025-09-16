@@ -3,7 +3,9 @@
 import { UnifiedUpload } from "@/components/shared/unified-upload"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Brain, Eye, Zap, Calculator, CheckCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Building2, Brain, Eye, Zap, Calculator, CheckCircle, FileCode, ArrowRight } from "lucide-react"
+import Link from "next/link"
 
 export default function UploadPage() {
   const features = [
@@ -158,6 +160,65 @@ export default function UploadPage() {
               </Card>
             </div>
           </div>
+
+          {/* Schematic Upload Link */}
+          <Card className="border-2 border-primary/20 bg-primary/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-primary rounded-xl">
+                    <FileCode className="h-6 w-6 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <CardTitle>Advanced Schematic & Blueprint Analysis</CardTitle>
+                    <CardDescription>
+                      Specialized AI processing with Qwen and YOLO models
+                    </CardDescription>
+                  </div>
+                </div>
+                <Link href="/schematic-upload">
+                  <Button variant="default" size="sm">
+                    Try Schematic Upload
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-0.5" variant="secondary">Qwen</Badge>
+                  <div>
+                    <h4 className="font-medium text-sm">Advanced Text Extraction</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Extracts technical specifications, measurements, and annotations from complex drawings
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-0.5" variant="secondary">YOLO</Badge>
+                  <div>
+                    <h4 className="font-medium text-sm">Visual Element Detection</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Identifies roof components, dimension lines, and architectural features
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Badge className="mt-0.5" variant="secondary">AI</Badge>
+                  <div>
+                    <h4 className="font-medium text-sm">Intelligent Analysis</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Combines text and visual data for comprehensive roofing estimates
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Perfect for architectural blueprints, technical schematics, CAD exports, and detailed construction drawings
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Benefits Section */}
           <Card>

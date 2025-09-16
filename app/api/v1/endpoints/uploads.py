@@ -2,8 +2,9 @@ import uuid
 import aiofiles
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Form
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -21,11 +22,21 @@ router = APIRouter()
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def upload_document(
-    file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
+    file: UploadFile = File(...),
+    document_type: Optional[str] = Form(default="standard"),
+    processing_mode: Optional[str] = Form(default="standard"),
+    project_id: Optional[str] = Form(default=None),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Uploads a PDF document, saves it, creates a database record,
     and queues it for background processing.
+    
+    Args:
+        file: PDF file to upload
+        document_type: Type of document (standard, schematic, blueprint)
+        processing_mode: Processing mode (standard, qwen_yolo)
+        project_id: Optional project ID to associate with
     """
     if file.content_type != "application/pdf":
         raise HTTPException(
@@ -119,7 +130,12 @@ async def upload_document(
             # Transaction commits automatically on success
         
         # Queue background processing only after successful commit
-        process_pdf_with_pipeline.delay(document_id=str(unique_id))
+        processing_options = {
+            "mode": processing_mode,
+            "document_type": document_type,
+            "project_id": project_id
+        }
+        process_pdf_with_pipeline.delay(document_id=str(unique_id), processing_options=processing_options)
     except Exception as e:
         # Clean up uploaded file if database operation fails
         file_path.unlink(missing_ok=True)

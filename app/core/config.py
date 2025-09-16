@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     
     # AI Services
     ANTHROPIC_API_KEY: Optional[str] = None
+    QWEN_API_KEY: Optional[str] = None
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
     GOOGLE_CLOUD_PROJECT_ID: Optional[str] = None
     DOCUMENT_AI_PROCESSOR_ID: Optional[str] = None

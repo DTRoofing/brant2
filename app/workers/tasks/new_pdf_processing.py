@@ -76,17 +76,20 @@ class PipelineTask(Task):
 
 
 @celery_app.task(base=PipelineTask, bind=True, max_retries=3)
-def process_pdf_with_pipeline(self, document_id: str):
+def process_pdf_with_pipeline(self, document_id: str, processing_options: Dict[str, Any] = None):
     """
     Process a PDF document using the new multi-stage pipeline
     
     Args:
         document_id: UUID of the document to process
+        processing_options: Optional processing options including mode
         
     Returns:
         ProcessingResult with all stage results
     """
     logger.info(f"Starting new pipeline processing for document {document_id}")
+    processing_mode = processing_options.get("mode", "standard") if processing_options else "standard"
+    logger.info(f"Processing mode: {processing_mode}")
     
     # --- Stage 1: Set status to PROCESSING ---
     try:
@@ -116,7 +119,27 @@ def process_pdf_with_pipeline(self, document_id: str):
             raise FileNotFoundError(f"PDF file not found: {file_path}")
 
         logger.info(f"Processing {file_path} with new pipeline")
-        result = asyncio.run(pdf_pipeline.process_document(str(file_path), document_id))
+        
+        # Check if we should use the Qwen/YOLO processor
+        if processing_mode == "qwen_yolo":
+            logger.info(f"Using Qwen/YOLO processor for document {document_id}")
+            from app.services.processing_stages.qwen_yolo_processor import QwenYOLOProcessor
+            
+            # Read PDF content
+            with open(file_path, 'rb') as f:
+                pdf_content = f.read()
+            
+            # Process with Qwen/YOLO
+            processor = QwenYOLOProcessor()
+            result = asyncio.run(processor.process_schematic_pdf(
+                pdf_content,
+                document_id,
+                document_type="schematic",
+                processing_options=processing_options
+            ))
+        else:
+            # Use standard pipeline
+            result = asyncio.run(pdf_pipeline.process_document(str(file_path), document_id))
     except Exception as e:
         logger.error(f"Pipeline execution failed for {document_id}: {e}")
         raise self.retry(exc=e, countdown=2 ** self.request.retries)
@@ -150,63 +173,127 @@ def process_pdf_with_pipeline(self, document_id: str):
                 db.add(processing_results)
             else:
                 logger.info(f"Updating existing ProcessingResults for document {document_id}")
-
-            # Populate results from pipeline
-            if result.final_estimate:
-                # Core measurements
-                processing_results.roof_area_sqft = result.final_estimate.total_area_sqft
-                processing_results.estimated_cost = result.final_estimate.estimated_cost
-                processing_results.confidence_score = result.final_estimate.confidence_score
+            
+            # Handle Qwen/YOLO results differently
+            if processing_mode == "qwen_yolo" and hasattr(result, 'result'):
+                # Extract data from Qwen/YOLO result format
+                qwen_yolo_data = result.result
                 
-                # Materials and labor
-                processing_results.materials = result.final_estimate.materials_needed
+                # Roof analysis data
+                if "roofing_analysis" in qwen_yolo_data:
+                    analysis = qwen_yolo_data["roofing_analysis"]
+                    chars = analysis.get("roof_characteristics", {})
+                    processing_results.roof_area_sqft = chars.get("total_area", 0)
+                    
+                    # Materials from analysis
+                    material_analysis = analysis.get("material_analysis", {})
+                    materials = []
+                    for rec in material_analysis.get("recommendations", []):
+                        materials.append({
+                            "type": rec.get("category", ""),
+                            "name": rec.get("recommendation", ""),
+                            "details": rec.get("details", {})
+                        })
+                    processing_results.materials = materials
+                    
+                    # Features
+                    processing_results.roof_features = [
+                        {"type": k, "count": v} 
+                        for k, v in analysis.get("feature_summary", {}).items()
+                    ]
+                    
+                    # Complexity factors
+                    complexity = chars.get("complexity", "medium")
+                    processing_results.complexity_factors = [
+                        f"Complexity: {complexity}",
+                        f"Roof Type: {chars.get('type', 'unknown')}",
+                        f"Primary Pitch: {chars.get('primary_pitch', 'unknown')}"
+                    ]
+                    
+                    # Special considerations as recommendations
+                    processing_results.recommendations = analysis.get("special_considerations", [])
                 
-                # Timeline and metadata from final estimate
-                if hasattr(result.final_estimate, 'processing_metadata'):
-                    processing_results.processing_time_seconds = result.processing_time_seconds
-            
-            # AI interpretation data
-            if result.ai_interpretation:
-                processing_results.roof_features = result.ai_interpretation.roof_features
-                processing_results.complexity_factors = result.ai_interpretation.complexity_factors
-                # FIX: Preserve the full AI interpretation for downstream analysis (e.g., McDonald's detection)
-                # Store the complete interpretation data as JSON instead of just a summary string
-                if hasattr(result.ai_interpretation, 'metadata') and result.ai_interpretation.metadata:
-                    import json
-                    processing_results.ai_interpretation = json.dumps(result.ai_interpretation.metadata)
-                else:
-                    # Fallback to structured data if no metadata
-                    interpretation_data = {
-                        "roof_pitch": result.ai_interpretation.roof_pitch,
-                        "confidence": result.ai_interpretation.confidence,
-                        "materials": result.ai_interpretation.materials,
-                        "special_requirements": result.ai_interpretation.special_requirements,
-                        "damage_assessment": result.ai_interpretation.damage_assessment
-                    }
-                    import json
-                    processing_results.ai_interpretation = json.dumps(interpretation_data)
-            
-            # Extraction method and processing metadata
-            if result.extracted_content:
-                processing_results.extraction_method = result.extracted_content.extraction_method
-            
-            # Validation results and recommendations
-            if result.validated_data:
-                processing_results.recommendations = result.validated_data.material_recommendations
-                processing_results.warnings = result.validated_data.warnings
-                processing_results.errors = result.validated_data.errors
-            
-            # Processing timeline and stages
-            processing_results.processing_time_seconds = result.processing_time_seconds
-            processing_results.stages_completed = [stage.value for stage in result.stages_completed]
+                # Store full Qwen/YOLO data as AI interpretation
+                import json
+                processing_results.ai_interpretation = json.dumps(qwen_yolo_data)
+                
+                # Confidence and processing time
+                processing_results.confidence_score = result.confidence_score
+                processing_results.processing_time_seconds = result.processing_time_seconds
+                processing_results.extraction_method = "qwen_yolo"
+                
+                # Calculate estimated cost based on area and complexity
+                if processing_results.roof_area_sqft:
+                    base_cost_per_sqft = 5.50  # Base rate
+                    complexity_multiplier = {"low": 1.0, "medium": 1.15, "high": 1.3}.get(complexity, 1.15)
+                    processing_results.estimated_cost = processing_results.roof_area_sqft * base_cost_per_sqft * complexity_multiplier
+            else:
+                # Populate results from standard pipeline
+                if result.final_estimate:
+                    # Core measurements
+                    processing_results.roof_area_sqft = result.final_estimate.total_area_sqft
+                    processing_results.estimated_cost = result.final_estimate.estimated_cost
+                    processing_results.confidence_score = result.final_estimate.confidence_score
+                    
+                    # Materials and labor
+                    processing_results.materials = result.final_estimate.materials_needed
+                    
+                    # Timeline and metadata from final estimate
+                    if hasattr(result.final_estimate, 'processing_metadata'):
+                        processing_results.processing_time_seconds = result.processing_time_seconds
+                
+                # AI interpretation data
+                if result.ai_interpretation:
+                    processing_results.roof_features = result.ai_interpretation.roof_features
+                    processing_results.complexity_factors = result.ai_interpretation.complexity_factors
+                    # FIX: Preserve the full AI interpretation for downstream analysis (e.g., McDonald's detection)
+                    # Store the complete interpretation data as JSON instead of just a summary string
+                    if hasattr(result.ai_interpretation, 'metadata') and result.ai_interpretation.metadata:
+                        import json
+                        processing_results.ai_interpretation = json.dumps(result.ai_interpretation.metadata)
+                    else:
+                        # Fallback to structured data if no metadata
+                        interpretation_data = {
+                            "roof_pitch": result.ai_interpretation.roof_pitch,
+                            "confidence": result.ai_interpretation.confidence,
+                            "materials": result.ai_interpretation.materials,
+                            "special_requirements": result.ai_interpretation.special_requirements,
+                            "damage_assessment": result.ai_interpretation.damage_assessment
+                        }
+                        import json
+                        processing_results.ai_interpretation = json.dumps(interpretation_data)
+                
+                # Extraction method and processing metadata
+                if result.extracted_content:
+                    processing_results.extraction_method = result.extracted_content.extraction_method
+                
+                # Validation results and recommendations
+                if result.validated_data:
+                    processing_results.recommendations = result.validated_data.material_recommendations
+                    processing_results.warnings = result.validated_data.warnings
+                    processing_results.errors = result.validated_data.errors
+                
+                # Processing timeline and stages
+                processing_results.processing_time_seconds = result.processing_time_seconds
+                processing_results.stages_completed = [stage.value for stage in result.stages_completed]
 
             # Update final document status
-            if result.current_stage == ProcessingStatus.COMPLETED:
-                document.processing_status = ProcessingStatus.COMPLETED
-                document.processing_error = None
+            if processing_mode == "qwen_yolo":
+                # For Qwen/YOLO, check status field
+                if result.status == "completed":
+                    document.processing_status = ProcessingStatus.COMPLETED
+                    document.processing_error = None
+                else:
+                    document.processing_status = ProcessingStatus.FAILED
+                    document.processing_error = "; ".join(result.errors) if result.errors else "Processing failed"
             else:
-                document.processing_status = ProcessingStatus.FAILED
-                document.processing_error = "; ".join(result.errors)
+                # Standard pipeline status
+                if result.current_stage == ProcessingStatus.COMPLETED:
+                    document.processing_status = ProcessingStatus.COMPLETED
+                    document.processing_error = None
+                else:
+                    document.processing_status = ProcessingStatus.FAILED
+                    document.processing_error = "; ".join(result.errors)
 
             # Explicitly commit the transaction with logging
             logger.info(f"Committing transaction for document {document_id}")
@@ -227,14 +314,24 @@ def process_pdf_with_pipeline(self, document_id: str):
         logger.error(f"Failed to save results for {document_id}: {e}")
         raise self.retry(exc=e, countdown=2 ** self.request.retries)
 
-    return {
-        "document_id": document_id,
-        "status": "completed",
-        "stages_completed": [stage.value for stage in result.stages_completed],
-        "final_estimate": result.final_estimate.dict() if result.final_estimate else None,
-        "processing_time_seconds": result.processing_time_seconds,
-        "errors": result.errors
-    }
+    if processing_mode == "qwen_yolo":
+        return {
+            "document_id": document_id,
+            "status": result.status,
+            "processing_mode": "qwen_yolo",
+            "stages_completed": result.result.get("processing_stages", []),
+            "processing_time_seconds": result.processing_time_seconds,
+            "errors": result.errors
+        }
+    else:
+        return {
+            "document_id": document_id,
+            "status": "completed",
+            "stages_completed": [stage.value for stage in result.stages_completed],
+            "final_estimate": result.final_estimate.dict() if result.final_estimate else None,
+            "processing_time_seconds": result.processing_time_seconds,
+            "errors": result.errors
+        }
 
 
 
