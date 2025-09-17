@@ -22,6 +22,9 @@ from app.models.base import Base
 from app.models.core import Document, ProcessingStatus
 from app.core.config import settings
 
+# Import test mocks
+from .test_mocks import mock_google_services, mock_anthropic, mock_environment, mock_celery
+
 
 @pytest.fixture(scope="session")
 def event_loop():
