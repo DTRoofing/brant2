@@ -21,7 +21,7 @@ httpx==0.25.2
 responses==0.24.1
 
 # Database testing
-pytest-postgresql==5.0.1
+pytest-postgresql==7.0.2
 sqlalchemy-utils==0.41.1
 
 # Mock and fixture helpers
