@@ -9,6 +9,7 @@ celery_app = Celery(
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
         "app.workers.tasks.new_pdf_processing",
+        "app.workers.document_processor",
     ],
 )
 

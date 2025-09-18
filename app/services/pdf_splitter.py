@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 class PDFSplitter:
     """Service for splitting large PDFs into manageable chunks"""
     
-    def __init__(self, max_pages: int = 15, max_size_mb: int = 25):
+    def __init__(self, max_pages: int = 15, max_size_mb: int = 18):
         """
         Initialize PDF splitter
         
         Args:
             max_pages: Maximum pages per chunk (default 15 for Document AI processor)
-            max_size_mb: Maximum size in MB per chunk (default 25 to stay under 30MB limit)
+            max_size_mb: Maximum size in MB per chunk (default 18 to stay under 20MB API limits)
         """
         self.max_pages = max_pages
         self.max_size_mb = max_size_mb

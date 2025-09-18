@@ -183,8 +183,8 @@ export function UnifiedUpload({
         updateStage(0, "processing", 50)
       }
       
-      // Use the proxy endpoint for upload
-      const response = await fetch('/api/proxy/documents/upload', {
+      // Use the direct API endpoint for upload
+      const response = await fetch('http://localhost:3001/api/v1/documents/upload', {
         method: 'POST',
         body: formData,
       })

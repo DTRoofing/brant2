@@ -22,7 +22,13 @@ class ProcessingRequest(BaseModel):
 router = APIRouter()
 
 
-@router.post("/process/{document_id}")
+@router.post(
+    "/process/{document_id}",
+    tags=["Processing"],
+    summary="Start document processing",
+    description="Initiates the AI-powered document processing pipeline for roof estimation",
+    response_description="Processing job started successfully"
+)
 async def start_pipeline_processing(
     document_id: str,
     background_tasks: BackgroundTasks,
@@ -129,24 +135,23 @@ async def get_processing_results(
     try:
         doc_uuid = uuid.UUID(document_id)
         
-        # Query document with results
-        stmt = select(Document).where(Document.id == doc_uuid)
+        # Optimized Query: Join Document and ProcessingResults to fetch in one call
+        stmt = select(Document, ProcessingResults).join(
+            ProcessingResults, Document.id == ProcessingResults.document_id, isouter=True
+        ).where(Document.id == doc_uuid)
         result = await db.execute(stmt)
-        document = result.scalar_one_or_none()
+        db_result = result.first()
         
-        if not document:
+        if not db_result:
             raise HTTPException(status_code=404, detail="Document not found")
         
+        document, processing_results = db_result
+
         if document.processing_status != ProcessingStatus.COMPLETED:
             raise HTTPException(
                 status_code=400, 
                 detail=f"Document processing not completed. Current status: {document.processing_status.value}"
             )
-        
-        # Query actual results from database
-        results_stmt = select(ProcessingResults).where(ProcessingResults.document_id == doc_uuid)
-        results_result = await db.execute(results_stmt)
-        processing_results = results_result.scalar_one_or_none()
         
         if not processing_results:
             # Fallback for documents processed before this update
@@ -174,43 +179,20 @@ async def get_processing_results(
         complexity_count = len(processing_results.complexity_factors or [])
         complexity = "low" if complexity_count <= 2 else "medium" if complexity_count <= 4 else "high"
         
-        # Smart cost breakdown based on materials and project type
-        is_commercial = roof_area > 10000 or "commercial" in str(processing_results.materials).lower()
-        
-        if is_commercial:
-            labor_percentage = 0.35
-            material_percentage = 0.55
-            permit_percentage = 0.06
-            contingency_percentage = 0.04
-        else:
-            labor_percentage = 0.40
-            material_percentage = 0.50
-            permit_percentage = 0.05
-            contingency_percentage = 0.05
-        
-        # Format metadata with proper client information
-        metadata = {}
-        
-        # Check if this is a McDonald's document
-        if processing_results.ai_interpretation and "mcdonald" in processing_results.ai_interpretation.lower():
-            # Extract McDonald's specific information
-            import re
-            store_match = re.search(r'store\s*#?\s*(\d+)', processing_results.ai_interpretation, re.IGNORECASE)
-            project_match = re.search(r'project\s*#?\s*([\d-]+)', processing_results.ai_interpretation, re.IGNORECASE)
-            
-            metadata["document_type"] = "mcdonalds_roofing"
-            metadata["client_name"] = f"McDonald's Store #{store_match.group(1) if store_match else 'Unknown'}"
-            metadata["project_name"] = f"McDonald's Roofing Project {project_match.group(1) if project_match else ''}"
-            metadata["company_name"] = "McDonald's Corporation"
-        else:
-            # Generic client information
-            metadata["client_name"] = document.filename.replace('.pdf', '').replace('_', ' ').title() if document.filename else "Client"
-            metadata["project_name"] = f"Roofing Project - {document.filename[:20] if document.filename else 'New'}"
-            metadata["company_name"] = "Commercial Client"
-        
+        # The project_metadata field now holds all the necessary project info.
+        # This removes the need for redundant regex parsing or generic data generation in the API layer.
+        metadata = processing_results.project_metadata or {}
         metadata["document_id"] = str(document_id)
         metadata["complexity"] = complexity
         
+        # Smart cost breakdown based on materials and project type
+        is_commercial = roof_area > 10000 or "commercial" in str(processing_results.materials).lower()
+        
+        labor_percentage = 0.35 if is_commercial else 0.40
+        material_percentage = 0.55 if is_commercial else 0.50
+        permit_percentage = 0.06 if is_commercial else 0.05
+        contingency_percentage = 0.04 if is_commercial else 0.05
+
         # Return enhanced results from database
         return {
             "document_id": document_id,

@@ -5,6 +5,7 @@
 ### 1. Initial Setup
 
 After cloning the repository, Cursor IDE will automatically:
+
 - Suggest installing recommended extensions
 - Load workspace settings for optimal development
 - Configure TypeScript and Tailwind CSS IntelliSense
@@ -12,6 +13,7 @@ After cloning the repository, Cursor IDE will automatically:
 ### 2. Recommended Extensions
 
 The project includes a `.vscode/extensions.json` file with recommended extensions:
+
 - **TypeScript**: Enhanced TypeScript support
 - **Prettier**: Code formatting
 - **ESLint**: Code linting
@@ -23,7 +25,8 @@ The project includes a `.vscode/extensions.json` file with recommended extension
 ### 3. Development Workflow
 
 #### Quick Start
-\`\`\`bash
+
+```bash
 # 1. Copy environment file
 cp .env.example .env.development
 
@@ -32,10 +35,11 @@ npm run docker:dev
 
 # 3. Open in browser
 open http://localhost:3000
-\`\`\`
+```
 
 #### Database Development
-\`\`\`bash
+
+```bash
 # View database in Prisma Studio
 npm run db:studio
 
@@ -44,27 +48,31 @@ npm run db:reset
 
 # Run migrations
 npm run db:migrate
-\`\`\`
+```
 
 #### Debugging
 
 **Server-Side Debugging:**
+
 1. Use the "Next.js: debug server-side" launch configuration
 2. Set breakpoints in API routes or server components
 3. Start debugging with F5
 
 **Client-Side Debugging:**
+
 1. Use the "Next.js: debug client-side" launch configuration
 2. Set breakpoints in client components
 3. Debug in Chrome DevTools
 
 **Full Stack Debugging:**
+
 1. Use the "Next.js: debug full stack" configuration
 2. Debug both server and client simultaneously
 
 ### 4. Code Organization
 
 #### Component Structure
+
 \`\`\`
 components/
 ├── auth/           # Authentication components
@@ -76,6 +84,7 @@ components/
 \`\`\`
 
 #### API Routes
+
 \`\`\`
 app/api/
 ├── estimates/      # Estimate CRUD operations
@@ -86,7 +95,8 @@ app/api/
 ### 5. Environment Variables
 
 Create `.env.development` with:
-\`\`\`bash
+
+```bash
 # Google Cloud
 GOOGLE_APPLICATION_CREDENTIALS="path/to/credentials.json"
 GOOGLE_CLOUD_PROJECT_ID="your-project-id"
@@ -99,11 +109,11 @@ ANTHROPIC_API_KEY="your-api-key"
 
 # Database (Docker)
 DATABASE_URL="postgresql://roofing_user:roofing_pass@localhost:5432/roofing_db"
-\`\`\`
+```
 
 ### 6. Testing
 
-\`\`\`bash
+```bash
 # Run all tests
 npm run test
 
@@ -112,11 +122,12 @@ npm run test:watch
 
 # Generate coverage report
 npm run test:coverage
-\`\`\`
+```
 
 ### 7. Code Quality
 
 The project uses:
+
 - **ESLint**: Code linting with Next.js rules
 - **Prettier**: Code formatting
 - **TypeScript**: Type checking
@@ -125,6 +136,7 @@ The project uses:
 ### 8. Docker Development
 
 #### Services
+
 - **app**: Next.js application (port 3000)
 - **db**: PostgreSQL database (port 5432)
 - **redis**: Redis cache (port 6379)
@@ -132,7 +144,8 @@ The project uses:
 - **mailhog**: Email testing (port 8025)
 
 #### Useful Commands
-\`\`\`bash
+
+```bash
 # View logs
 docker-compose logs -f app
 
@@ -145,16 +158,18 @@ docker-compose up --build
 # Clean up
 docker-compose down -v
 docker system prune -f
-\`\`\`
+```
 
 ### 9. AI Integration
 
 #### Google Document AI
+
 - Processes PDF documents for text extraction
 - Configured via `DOCUMENT_AI_PROCESSOR_ID`
 - Results stored in database with confidence scores
 
 #### Claude AI
+
 - Provides expert roofing analysis
 - Uses detailed prompts for comprehensive estimates
 - Displays results in separate tab
@@ -164,25 +179,29 @@ docker system prune -f
 #### Common Issues
 
 **TypeScript Errors:**
+
 - Restart TypeScript server: Cmd+Shift+P → "TypeScript: Restart TS Server"
 - Check `tsconfig.json` configuration
 
 **Docker Issues:**
-\`\`\`bash
+
+```bash
 # Reset Docker environment
 docker-compose down -v
 docker system prune -f
 npm run docker:dev
-\`\`\`
+```
 
 **Database Issues:**
-\`\`\`bash
+
+```bash
 # Reset database
 npm run db:reset
 npm run db:seed
-\`\`\`
+```
 
 **Hot Reload Not Working:**
+
 - Check file watchers in Docker
 - Restart development server
 - Clear Next.js cache: `rm -rf .next`
@@ -198,15 +217,18 @@ npm run db:seed
 ### 11. Deployment
 
 #### Development
+
 \`\`\`bash
 npm run docker:dev
 \`\`\`
 
 #### Production
+
 \`\`\`bash
 npm run docker:prod
 \`\`\`
 
 #### Environment-Specific Configs
+
 - Development: `docker-compose.dev.yml`
 - Production: `docker-compose.prod.yml`

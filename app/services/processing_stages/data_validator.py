@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Any, List
-import re
 
 from app.models.processing import ValidatedData, AIInterpretation, ExtractedContent
+from app.services.processing_stages.config_repository import get_cost_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -10,49 +10,20 @@ logger = logging.getLogger(__name__)
 class DataValidator:
     """Stage 4: Validate and enhance extracted data"""
     
-    def __init__(self):
-        # Roofing material costs (per sqft) - these would come from a database in production
-        self.material_costs = {
-            'asphalt_shingles': 3.50,
-            'metal_roofing': 8.00,
-            'tile': 12.00,
-            'slate': 15.00,
-            'wood_shakes': 10.00,
-            'membrane': 6.00
-        }
-        
-        # Labor costs (per sqft)
-        self.labor_costs = {
-            'asphalt_shingles': 2.50,
-            'metal_roofing': 4.00,
-            'tile': 5.00,
-            'slate': 8.00,
-            'wood_shakes': 6.00,
-            'membrane': 3.00
-        }
-    
-    async def validate_data(self, interpretation: AIInterpretation, content: ExtractedContent) -> ValidatedData:
-        """
-        Validate and enhance the AI interpretation
-        
-        Args:
-            interpretation: AI interpretation results
-            content: Original extracted content
-            
-        Returns:
-            ValidatedData with validated measurements and cost estimates
-        """
-        logger.info("Validating and enhancing data")
-        
+    def validate_data(self, interpretation: AIInterpretation, content: ExtractedContent) -> ValidatedData:
+        """Validate and enhance the AI interpretation data"""
         try:
+            # Get cost configuration
+            cost_config = get_cost_configuration()
+            
             # Validate measurements
             validated_measurements = self._validate_measurements(interpretation.measurements)
             
             # Calculate cost estimates
-            cost_estimates = self._calculate_cost_estimates(interpretation, validated_measurements)
+            cost_estimates = self._calculate_cost_estimates(cost_config, interpretation, validated_measurements)
             
             # Generate material recommendations
-            material_recommendations = self._generate_material_recommendations(interpretation)
+            material_recommendations = self._generate_material_recommendations(cost_config, interpretation)
             
             # Calculate quality score
             quality_score = self._calculate_quality_score(interpretation, content)
@@ -120,7 +91,7 @@ class DataValidator:
         
         return validated
     
-    def _calculate_cost_estimates(self, interpretation: AIInterpretation, measurements: List[Dict[str, Any]]) -> Dict[str, float]:
+    def _calculate_cost_estimates(self, cost_config: Dict, interpretation: AIInterpretation, measurements: List[Dict[str, Any]]) -> Dict[str, float]:
         """Calculate cost estimates based on materials and measurements"""
         costs = {}
         
@@ -138,35 +109,40 @@ class DataValidator:
         # Determine primary material
         primary_material = self._determine_primary_material(interpretation.materials)
         
-        if primary_material in self.material_costs:
-            material_cost_per_sqft = self.material_costs[primary_material]
-            labor_cost_per_sqft = self.labor_costs[primary_material]
-            
-            costs = {
-                'total_area_sqft': total_area,
-                'material_cost_per_sqft': material_cost_per_sqft,
-                'labor_cost_per_sqft': labor_cost_per_sqft,
-                'total_material_cost': total_area * material_cost_per_sqft,
-                'total_labor_cost': total_area * labor_cost_per_sqft,
-                'total_cost': total_area * (material_cost_per_sqft + labor_cost_per_sqft),
-                'primary_material': primary_material
-            }
-        else:
-            # Use average costs if material not identified
-            avg_material_cost = sum(self.material_costs.values()) / len(self.material_costs)
-            avg_labor_cost = sum(self.labor_costs.values()) / len(self.labor_costs)
-            
-            costs = {
-                'total_area_sqft': total_area,
-                'material_cost_per_sqft': avg_material_cost,
-                'labor_cost_per_sqft': avg_labor_cost,
-                'total_material_cost': total_area * avg_material_cost,
-                'total_labor_cost': total_area * avg_labor_cost,
-                'total_cost': total_area * (avg_material_cost + avg_labor_cost),
-                'primary_material': 'unknown'
-            }
+        material_costs = cost_config.get('material_costs_per_sqft', {})
+        labor_costs = cost_config.get('labor_costs_per_sqft', {})
+
+        material_cost_per_sqft = material_costs.get(primary_material, material_costs.get('unknown', 8.0))
+        labor_cost_per_sqft = labor_costs.get(primary_material, labor_costs.get('unknown', 4.5))
         
-        return costs
+        base_material_cost = total_area * material_cost_per_sqft
+        base_labor_cost = total_area * labor_cost_per_sqft
+        base_cost = base_material_cost + base_labor_cost
+
+        # Apply business logic (overhead, profit, contingency)
+        overhead_percent = cost_config.get('overhead_percent', 15.0)
+        profit_margin_percent = cost_config.get('profit_margin_percent', 10.0)
+        contingency_percent = cost_config.get('contingency_percent', 5.0)
+
+        overhead_cost = base_cost * (overhead_percent / 100)
+        subtotal = base_cost + overhead_cost
+        profit_cost = subtotal * (profit_margin_percent / 100)
+        contingency_cost = subtotal * (contingency_percent / 100)
+        
+        final_estimated_cost = subtotal + profit_cost + contingency_cost
+            
+        return {
+            'total_area_sqft': total_area,
+            'primary_material': primary_material,
+            'material_cost_per_sqft': material_cost_per_sqft,
+            'labor_cost_per_sqft': labor_cost_per_sqft,
+            'base_material_cost': base_material_cost,
+            'base_labor_cost': base_labor_cost,
+            'overhead_cost': overhead_cost,
+            'profit_cost': profit_cost,
+            'contingency_cost': contingency_cost,
+            'final_estimated_cost': final_estimated_cost
+        }
     
     def _determine_primary_material(self, materials: List[Dict[str, Any]]) -> str:
         """Determine the primary roofing material"""
@@ -184,7 +160,7 @@ class DataValidator:
         
         return 'asphalt_shingles'
     
-    def _generate_material_recommendations(self, interpretation: AIInterpretation) -> List[Dict[str, Any]]:
+    def _generate_material_recommendations(self, cost_config: Dict, interpretation: AIInterpretation) -> List[Dict[str, Any]]:
         """Generate material recommendations based on interpretation"""
         recommendations = []
         
@@ -192,25 +168,21 @@ class DataValidator:
         if interpretation.roof_area_sqft:
             if interpretation.roof_area_sqft < 2000:
                 recommendations.append({
-                    'material': 'asphalt_shingles',
+                    'type': 'asphalt_shingles',
                     'reason': 'Small roof area - cost effective option',
-                    'estimated_cost_per_sqft': self.material_costs['asphalt_shingles']
+                    'estimated_cost_per_sqft': cost_config.get('material_costs_per_sqft', {}).get('asphalt_shingles', 8.0)
                 })
-            elif interpretation.roof_area_sqft > 5000:
+            elif interpretation.roof_area_sqft < 5000:
                 recommendations.append({
-                    'material': 'metal_roofing',
-                    'reason': 'Large roof area - durable long-term option',
-                    'estimated_cost_per_sqft': self.material_costs['metal_roofing']
+                    'type': 'metal_roofing',
+                    'reason': 'Medium roof area - good balance of cost and durability',
+                    'estimated_cost_per_sqft': cost_config.get('material_costs_per_sqft', {}).get('metal_roofing', 12.0)
                 })
-        
-        # Recommendations based on damage assessment
-        if interpretation.damage_assessment:
-            severity = interpretation.damage_assessment.get('severity', 'low')
-            if severity == 'high':
+            else:
                 recommendations.append({
-                    'material': 'metal_roofing',
-                    'reason': 'High damage severity - need durable material',
-                    'estimated_cost_per_sqft': self.material_costs['metal_roofing']
+                    'type': 'slate_tiles',
+                    'reason': 'Large roof area - premium option for long-term value',
+                    'estimated_cost_per_sqft': cost_config.get('material_costs_per_sqft', {}).get('slate_tiles', 20.0)
                 })
         
         return recommendations
@@ -237,8 +209,6 @@ class DataValidator:
         
         # Score for extraction method quality
         if content.extraction_method == 'google_document_ai':
-            score += 2.0
-        elif content.extraction_method == 'google_vision_api':
             score += 1.5
         else:
             score += 0.5
@@ -249,14 +219,13 @@ class DataValidator:
         else:
             score += 0.5
         
-        return min(score / max_score, 1.0)
+        return min(score, max_score)
     
     def _generate_warnings_and_errors(self, interpretation: AIInterpretation, measurements: List[Dict[str, Any]]) -> tuple[List[str], List[str]]:
         """Generate warnings and errors based on the data"""
         warnings = []
         errors = []
         
-        # Check for missing critical data
         if not interpretation.roof_area_sqft and not measurements:
             errors.append("No roof area measurements found")
         

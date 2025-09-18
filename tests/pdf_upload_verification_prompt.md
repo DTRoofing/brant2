@@ -9,6 +9,7 @@
 "I need to test if my Brant Roofing System can successfully upload and process PDF blueprints using Google Document AI. Please help me verify the complete pipeline from file upload to measurement extraction.
 
 **My current setup:**
+
 - FastAPI backend with file upload endpoint
 - Google Document AI processor ID: `dc22888af5489eae`
 - Google Cloud project: `brant-roofing-system-2025`
@@ -16,12 +17,14 @@
 - Celery workers for background processing
 
 **What I want to test:**
+
 1. Upload a PDF file via the API
 2. Verify Google Document AI processes the file
 3. Check that measurements are extracted
 4. Confirm results are stored in the database
 
 **Please provide:**
+
 1. Step-by-step testing commands
 2. Sample test PDF content recommendations
 3. Expected API responses at each stage
@@ -29,6 +32,7 @@
 5. Log locations to check for errors
 
 **Current endpoint structure:**
+
 - Upload: `POST /api/v1/documents/upload`
 - Status: `GET /api/v1/documents/{id}/status`
 - Results: `GET /api/v1/documents/{id}/measurements`
@@ -42,6 +46,7 @@ Help me create a comprehensive test that proves the Google integration is workin
 ### **Step 1: Prepare Test Environment**
 
 **Create a test PDF file:**
+
 ```bash
 # Create a simple test PDF with measurement text
 echo "Roof Area: 2,500 square feet
@@ -54,6 +59,7 @@ Total Project Area: 2,980 SF" > test-blueprint.txt
 ```
 
 **Check service prerequisites:**
+
 ```bash
 # Verify Docker containers are running
 docker-compose ps
@@ -68,6 +74,7 @@ ls -la secrets/brant-roofing-system-2025-a5b8920b36d5.json
 ### **Step 2: Test File Upload**
 
 **Upload test file:**
+
 ```bash
 # Test file upload
 curl -X POST "http://localhost:3001/api/v1/documents/upload" \
@@ -88,6 +95,7 @@ curl -X POST "http://localhost:3001/api/v1/documents/upload" \
 ### **Step 3: Monitor Processing Status**
 
 **Check processing status:**
+
 ```bash
 # Replace DOCUMENT_ID with actual ID from upload
 export DOCUMENT_ID="your-document-id-here"
@@ -104,6 +112,7 @@ curl "http://localhost:3001/api/v1/documents/$DOCUMENT_ID/status"
 ### **Step 4: Verify Results**
 
 **Check extracted measurements:**
+
 ```bash
 # Get measurement results
 curl "http://localhost:3001/api/v1/documents/$DOCUMENT_ID/measurements"
@@ -123,6 +132,7 @@ curl "http://localhost:3001/api/v1/documents/$DOCUMENT_ID/measurements"
 ### **Step 5: Check Logs for Errors**
 
 **View application logs:**
+
 ```bash
 # API logs
 docker-compose logs api
@@ -146,6 +156,7 @@ docker-compose logs worker
 ### **Common Issues & Solutions**
 
 **Issue: Upload fails with 400 error**
+
 ```bash
 # Check file size and type
 ls -lh test-blueprint.pdf
@@ -155,6 +166,7 @@ file test-blueprint.pdf
 ```
 
 **Issue: Document AI authentication fails**
+
 ```bash
 # Verify service account key location
 ls -la secrets/brant-roofing-system-2025-a5b8920b36d5.json
@@ -171,6 +183,7 @@ print('Authentication successful!')
 ```
 
 **Issue: Processing stays in "pending" status**
+
 ```bash
 # Check if Celery worker is running
 docker-compose ps worker
@@ -183,6 +196,7 @@ docker-compose exec worker celery -A workers.celery_app inspect active
 ```
 
 **Issue: No measurements extracted**
+
 ```bash
 # Check Document AI response in logs
 docker-compose logs worker | grep "Document AI"
@@ -226,6 +240,7 @@ print(f'PDF has {len(pages)} pages')
 ## 🎯 Quick Health Check Script
 
 **Create this test script (`test-upload.sh`):**
+
 ```bash
 #!/bin/bash
 
@@ -280,6 +295,7 @@ fi
 ```
 
 **Run the test:**
+
 ```bash
 chmod +x test-upload.sh
 ./test-upload.sh

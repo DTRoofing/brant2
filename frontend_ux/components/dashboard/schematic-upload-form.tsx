@@ -44,7 +44,7 @@ export function SchematicUploadForm({ onUploadComplete, projectId }: SchematicUp
 
     try {
       // Upload file
-      const uploadResponse = await fetch("/api/v1/upload", {
+      const uploadResponse = await fetch("/api/proxy/documents/upload", {
         method: "POST",
         body: formData,
       });

@@ -1,4 +1,21 @@
-# Use an official Python runtime as a parent image
+# ---- Builder Stage ----
+# This stage installs dependencies and builds wheels.
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build tools that are only needed for this stage
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential
+
+# Copy only the requirements file to leverage Docker cache
+COPY requirements.txt .
+
+# Build wheels for all dependencies, which is faster than installing directly
+RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
+
+
+# ---- Final Stage ----
+# This is the final, minimal image that will be deployed.
 FROM python:3.11-slim
 
 # Set environment variables to prevent interactive prompts during installation
@@ -15,7 +32,6 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    libglib2.0-0 \
     libgl1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -23,26 +39,17 @@ RUN apt-get update && apt-get install -y \
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the dependencies file to the working directory
-COPY requirements.txt ./
+# Copy the pre-built wheels from the builder stage
+COPY --from=builder /app/wheels /wheels
 
-# Install Python dependencies using pip
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies from the wheels
+RUN pip install --no-cache-dir /wheels/*
 
 # Create a non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN addgroup --system appuser && adduser --system --group appuser
 
 # Copy the rest of the application's code to the working directory
-COPY ./app/ ./app
-
-# Create directories for uploads and logs
-RUN mkdir -p /app/uploads /app/logs
-
-# Copy Google credentials with secure permissions
-COPY --chown=appuser:appuser --chmod=600 ./google-credentials.json ./google-credentials.json
-
-# Change ownership of application directories to appuser
-RUN chown -R appuser:appuser /app
+COPY --chown=appuser:appuser ./app/ ./app
 
 # Switch to non-root user
 USER appuser
@@ -51,4 +58,5 @@ USER appuser
 ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Define the command to run the Celery worker.
-CMD ["celery", "-A", "app.workers.celery_app:celery_app", "worker", "--loglevel=info", "--concurrency=4"]
+# Concurrency is configurable via the CELERY_CONCURRENCY env var, with a default of 4.
+CMD ["sh", "-c", "celery -A app.workers.celery_app:celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-4}"]

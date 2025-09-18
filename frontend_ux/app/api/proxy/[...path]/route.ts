@@ -1,137 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Fixed backend URL - always use localhost:3001 for consistent development
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
-  const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/v1/${path}`;
-  
+/**
+ * A generic handler that proxies all requests (GET, POST, etc.)
+ * from the Next.js frontend to the FastAPI backend.
+ */
+async function handler(req: NextRequest) {
+  const { pathname, search } = new URL(req.url);
+  // Remove the /api/proxy prefix to get the actual API path
+  const apiPath = pathname.replace('/api/proxy', '');
+  const backendUrl = `${BACKEND_URL}/api/v1${apiPath}${search}`;
+
   try {
-    const response = await fetch(url, {
-      headers: Object.fromEntries(request.headers.entries()),
-    });
-    
-    const data = await response.text();
-    
-    return new NextResponse(data, {
-      status: response.status,
+    const response = await fetch(backendUrl, {
+      method: req.method,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
+        ...req.headers,
+        // The 'host' header must be updated to match the backend's expected host
+        host: new URL(BACKEND_URL).host,
       },
+      body: req.body,
+      // @ts-ignore - duplex is required for streaming bodies
+      duplex: 'half',
     });
+
+    return response;
   } catch (error) {
-    console.error('Proxy error:', error);
-    return NextResponse.json(
-      { error: 'Failed to connect to backend' },
-      { status: 500 }
-    );
+    console.error('API proxy error:', error);
+    return new NextResponse('Proxy error', { status: 500 });
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
-  const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/v1/${path}`;
-  
-  try {
-    // Handle FormData for file uploads
-    const contentType = request.headers.get('content-type') || '';
-    let body;
-    
-    if (contentType.includes('multipart/form-data')) {
-      body = await request.formData();
-    } else {
-      body = await request.text();
-    }
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      body: body,
-      headers: contentType.includes('multipart/form-data') 
-        ? {} // Let fetch set the boundary
-        : Object.fromEntries(request.headers.entries()),
-    });
-    
-    const data = await response.text();
-    
-    return new NextResponse(data, {
-      status: response.status,
-      headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      },
-    });
-  } catch (error) {
-    console.error('Proxy error:', error);
-    return NextResponse.json(
-      { error: 'Failed to connect to backend' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
-  const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/v1/${path}`;
-  
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      body: await request.text(),
-      headers: Object.fromEntries(request.headers.entries()),
-    });
-    
-    const data = await response.text();
-    
-    return new NextResponse(data, {
-      status: response.status,
-      headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      },
-    });
-  } catch (error) {
-    console.error('Proxy error:', error);
-    return NextResponse.json(
-      { error: 'Failed to connect to backend' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
-  const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/v1/${path}`;
-  
-  try {
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: Object.fromEntries(request.headers.entries()),
-    });
-    
-    const data = await response.text();
-    
-    return new NextResponse(data, {
-      status: response.status,
-      headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      },
-    });
-  } catch (error) {
-    console.error('Proxy error:', error);
-    return NextResponse.json(
-      { error: 'Failed to connect to backend' },
-      { status: 500 }
-    );
-  }
-}
+/**
+ * Export the generic handler for all common HTTP methods.
+ * This ensures consistent proxying behavior for the entire API.
+ */
+export { handler as GET };
+export { handler as POST };
+export { handler as PUT };
+export { handler as DELETE };
+export { handler as PATCH };

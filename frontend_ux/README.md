@@ -1,16 +1,23 @@
 # DT Commercial Roofing - AI-Powered Estimation Platform
 
-A modern, cutting-edge web application for commercial roofing estimators that automates roofing installation and repair estimates using Google Document AI and Claude AI.
+A modern, cutting-edge web application for commercial roofing estimators that
+automates roofing installation and repair estimates using Google Document AI and
+Claude AI.
 
 ## 🏗️ Features
 
-- **AI-Powered PDF Processing**: Upload roofing documents and extract comprehensive data using Google Document AI and Claude AI
-- **Comprehensive Estimates**: Generate detailed estimates with materials, labor, permits, and edge cases
-- **Source Citations**: All AI-extracted data includes citations linking back to source PDF pages
-- **Dual AI Analysis**: Compare Google Document AI and Claude AI results in separate tabs
+- **AI-Powered PDF Processing**: Upload roofing documents and extract
+  comprehensive data using Google Document AI and Claude AI
+- **Comprehensive Estimates**: Generate detailed estimates with materials,
+  labor, permits, and edge cases
+- **Source Citations**: All AI-extracted data includes citations linking back
+  to source PDF pages
+- **Dual AI Analysis**: Compare Google Document AI and Claude AI results in
+  separate tabs
 - **Export Capabilities**: Export estimates in PDF, Excel, and CSV formats
 - **User Management**: Authentication system with user and admin roles
-- **Real-time Processing**: Animated loading screens with live extraction previews
+- **Real-time Processing**: Animated loading screens with live extraction
+  previews
 
 ## 🚀 Quick Start
 
@@ -22,17 +29,17 @@ A modern, cutting-edge web application for commercial roofing estimators that au
 
 ### 1. Clone and Setup
 
-\`\`\`bash
+```bash
 git clone <repository-url>
 cd roofing-dashboard
 cp .env.example .env.development
-\`\`\`
+```
 
 ### 2. Configure Environment Variables
 
 Edit `.env.development` with your Google Cloud and Anthropic API credentials:
 
-\`\`\`bash
+```bash
 # Google Cloud Configuration
 GOOGLE_APPLICATION_CREDENTIALS="path/to/your/credentials.json"
 GOOGLE_CLOUD_PROJECT_ID="your-project-id"
@@ -45,30 +52,30 @@ ANTHROPIC_API_KEY="your-anthropic-api-key"
 
 # Database (automatically configured for Docker)
 DATABASE_URL="postgresql://roofing_user:roofing_pass@db:5432/roofing_db"
-\`\`\`
+```
 
 ### 3. Start Development Environment
 
-\`\`\`bash
+```bash
 # Start all services with Docker
 npm run docker:dev
 
 # Or use the setup script
 chmod +x scripts/dev-setup.sh
 ./scripts/dev-setup.sh
-\`\`\`
+```
 
 ### 4. Access the Application
 
-- **Application**: http://localhost:3000
-- **Database Admin**: http://localhost:8080 (Adminer)
-- **Email Testing**: http://localhost:8025 (Mailhog)
+- **Application**: <http://localhost:3000>
+- **Database Admin**: <http://localhost:8080> (Adminer)
+- **Email Testing**: <http://localhost:8025> (Mailhog)
 
 ## 🛠️ Development
 
 ### Available Scripts
 
-\`\`\`bash
+```bash
 npm run dev              # Start Next.js development server
 npm run build            # Build for production
 npm run start            # Start production server
@@ -86,11 +93,11 @@ npm run db:migrate       # Run Prisma migrations
 npm run db:seed          # Seed development data
 npm run db:studio        # Open Prisma Studio
 npm run db:reset         # Reset database
-\`\`\`
+```
 
 ### Project Structure
 
-\`\`\`
+```text
 ├── app/                    # Next.js App Router pages
 ├── components/             # React components
 │   ├── auth/              # Authentication components
@@ -105,7 +112,7 @@ npm run db:reset         # Reset database
 ├── database/              # Docker database configuration
 ├── nginx/                 # Nginx configuration
 └── monitoring/            # Prometheus monitoring config
-\`\`\`
+```
 
 ## 🔧 Configuration
 
@@ -118,6 +125,7 @@ npm run db:reset         # Reset database
 ### Database Schema
 
 The application uses PostgreSQL with Prisma ORM. Key models:
+
 - `Customer`: Client information
 - `Estimate`: Roofing estimates with AI analysis
 - `Measurement`: Extracted measurements from PDFs
@@ -128,14 +136,16 @@ The application uses PostgreSQL with Prisma ORM. Key models:
 ## 🚢 Deployment
 
 ### Development
-\`\`\`bash
+
+```bash
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
-\`\`\`
+```
 
 ### Production
-\`\`\`bash
+
+```bash
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-\`\`\`
+```
 
 ## 🔍 API Endpoints
 
@@ -149,11 +159,11 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 ## 🧪 Testing
 
-\`\`\`bash
+```bash
 npm run test             # Run tests
 npm run test:watch       # Run tests in watch mode
 npm run test:coverage    # Generate coverage report
-\`\`\`
+```
 
 ## 📝 Contributing
 
@@ -178,6 +188,7 @@ This project is proprietary software owned by DT Commercial Roofing.
 ## 🆘 Support
 
 For technical support or questions:
+
 - Create an issue in the repository
 - Contact the development team
 - Check the troubleshooting guide below
@@ -187,25 +198,27 @@ For technical support or questions:
 ### Common Issues
 
 **Docker containers won't start:**
-\`\`\`bash
+```bash
 docker-compose down -v
 docker system prune -f
 npm run docker:dev
-\`\`\`
+```
 
 **Database connection issues:**
-\`\`\`bash
+```bash
 npm run db:reset
 npm run db:migrate
 npm run db:seed
-\`\`\`
+```
 
 **Google Cloud authentication:**
+
 - Verify `GOOGLE_APPLICATION_CREDENTIALS` path
 - Check service account permissions
 - Ensure Document AI processor is active
 
 **Missing environment variables:**
+
 - Copy `.env.example` to `.env.development`
 - Fill in all required API keys and credentials
 - Restart Docker containers after changes

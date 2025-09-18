@@ -1,35 +1,16 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .config import settings
+from app.db.session import AsyncSessionLocal
 
-# Create an async engine
-# Convert postgresql:// to postgresql+asyncpg:// for async support
-database_url = str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://")
-# asyncpg uses 'ssl' parameter instead of 'sslmode'
-if "sslmode=require" in database_url:
-    database_url = database_url.replace("sslmode=require", "ssl=require")
-elif "sslmode=" not in database_url and "ssl=" not in database_url:
-    # Add SSL if not present
-    database_url += ("&" if "?" in database_url else "?") + "ssl=require"
-
-engine = create_async_engine(
-    database_url,
-    echo=settings.DEBUG,
-    pool_pre_ping=True,
-)
-
-# Create a session maker that can be used to create sessions
-AsyncSessionFactory = sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+# NOTE: This file is being deprecated in favor of app/db/session.py and app/api/dependencies.py
+# for better separation of concerns. The engine and session factory are now centralized in app/db/session.py.
+# This get_db function is maintained for backward compatibility but should be replaced
+# with the dependency from app.api.dependencies.
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI dependency that provides an async database session.
     """
-    async with AsyncSessionFactory() as session:
+    async with AsyncSessionLocal() as session:
         yield session

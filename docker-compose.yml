@@ -1,95 +1,188 @@
+version: '3.8'
+
+# ===================================================================
+# COMMON SERVICE DEFINITIONS (using YAML anchors)
+# ===================================================================
+x-api-base: &api-base
+  build:
+    context: .
+    dockerfile: backend.Dockerfile
+  ports:
+    - "3001:3001"
+  volumes:
+    - ./app:/app/app
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/pipeline/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 30s
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+        cpus: '1.0'
+      reservations:
+        memory: 256M
+        cpus: '0.5'
+  security_opt:
+    - no-new-privileges:true
+  read_only: false
+  restart: unless-stopped
+
+x-worker-base: &worker-base
+  build:
+    context: .
+    dockerfile: worker.Dockerfile
+  volumes:
+    - ./app:/app/app
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "celery", "-A", "app.workers.celery_app:celery_app", "inspect", "ping"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+  deploy:
+    resources:
+      limits:
+        memory: 6G
+        cpus: '2.0'
+      reservations:
+        memory: 3G
+        cpus: '1.0'
+  security_opt:
+    - no-new-privileges:true
+  read_only: false
+  restart: unless-stopped
+
+x-frontend-base: &frontend-base
+  # This configuration assumes the frontend Dockerfile is multi-stage,
+  # with a 'development' target for local development with hot-reloading,
+  # and a 'production' target for an optimized production build.
+  build:
+    context: ./frontend_ux
+    dockerfile: Dockerfile
+  ports:
+    - "3000:3000"
+  restart: unless-stopped
+
 services:
   api:
+    <<: *api-base
+    container_name: brant-api-local
+    profiles: ["local"] # This is for local .env-based development
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      # Mount credentials for local development against GCP
+      - ./secrets/brant-roofing-system-2025-a5b8920b36d5.json:/app/google-credentials.json:ro
+      - ./.env:/app/.env:ro
+
+  frontend-local:
+    <<: *frontend-base
+    container_name: brant-frontend-local
+    profiles: ["local"]
     build:
-      context: .
-      dockerfile: backend.Dockerfile
-    ports:
-      - "3001:3001"
+      context: ./frontend_ux
+      dockerfile: Dockerfile
+      target: development # Use the development stage from the Dockerfile
     env_file:
       - .env
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
-      - UPLOAD_DIR=/app/uploads
+      - NODE_ENV=development
     volumes:
-      - ./app:/app/app
-      - ./requirements.txt:/app/requirements.txt
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-      # Remove credentials volume mount - handled in Dockerfile securely
-      - ./.env:/app/.env:ro
+      - ./frontend_ux:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/pipeline/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-        reservations:
-          memory: 256M
-          cpus: '0.5'
-    security_opt:
-      - no-new-privileges:true
-    read_only: false  # Set to true in production, false for development volumes
-    restart: unless-stopped
-
-  # frontend:
-  #   build:
-  #     context: ./frontend_ux
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     # This service connects to the backend 'api' service.
-  #     # Ensure the frontend's proxy is configured to point to http://api:3001
-  #     - NODE_ENV=development
-  #   volumes:
-  #     # Mounts for development to allow hot-reloading
-  #     - ./frontend_ux:/app
-  #     - /app/node_modules
-  #     - /app/.next
-  #   depends_on:
-  #     - api
-  #   restart: unless-stopped
+      - api
 
   worker:
-    build:
-      context: .
-      dockerfile: worker.Dockerfile
+    <<: *worker-base
+    container_name: brant-worker-local
+    profiles: ["local"] # This is for local .env-based development
     env_file:
       - .env
-    environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
-      - UPLOAD_DIR=/app/uploads
     volumes:
       - ./app:/app/app
-      - ./requirements.txt:/app/requirements.txt
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-      # Remove credentials volume mount - handled in Dockerfile securely
+      # Mount credentials for local development against GCP
+      - ./secrets/brant-roofing-system-2025-a5b8920b36d5.json:/app/google-credentials.json:ro
       - ./.env:/app/.env:ro
+
+  # ===================================================================
+  # GCP SECRET MANAGER PROFILE
+  # Run with: docker-compose --profile gcp up
+  # ===================================================================
+  api-gcp:
+    <<: *api-base
+    container_name: brant-api-gcp
+    profiles: ["gcp"]
+    environment:
+      # This tells the app to fetch secrets from Google Secret Manager.
+      # The GCP_PROJECT variable must be set on your host machine.
+      - GCP_PROJECT
+    volumes:
+      # Mounts application code for development against GCP services
+      - ./app:/app/app
+      # Mounts your local gcloud credentials to authenticate with Secret Manager.
+      # You must run 'gcloud auth application-default login' on your host first.
+      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+
+  frontend-gcp:
+    <<: *frontend-base
+    container_name: brant-frontend-gcp
+    profiles: ["gcp"]
+    build:
+      context: ./frontend_ux
+      dockerfile: Dockerfile
+      target: production # Use the production stage from the Dockerfile
+    environment:
+      - NODE_ENV=production
+      # The frontend needs to know the backend URL for production.
+      - NEXT_PUBLIC_API_URL=http://api-gcp:3001
     depends_on:
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '2.0'
-        reservations:
-          memory: 1G
-          cpus: '1.0'
-    security_opt:
-      - no-new-privileges:true
-    read_only: false  # Set to true in production, false for development volumes
+      - api-gcp
+
+  worker-gcp:
+    <<: *worker-base
+    container_name: brant-worker-gcp
+    profiles: ["gcp"]
+    environment:
+      - GCP_PROJECT
+    volumes:
+      # Mounts application code for development against GCP services
+      - ./app:/app/app
+      # Mounts your local gcloud credentials to authenticate with Secret Manager.
+      # You must run 'gcloud auth application-default login' on your host first.
+      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: brant-postgres-local
+    environment:
+      POSTGRES_DB: brant_roofing
+      POSTGRES_USER: brant_user
+      POSTGRES_PASSWORD: brant_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brant_user -d brant_roofing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
@@ -121,4 +214,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres_data:
   redis_data:

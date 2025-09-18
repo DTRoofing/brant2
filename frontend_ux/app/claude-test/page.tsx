@@ -1,16 +1,28 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { FinalEstimateDisplay } from '../components/FinalEstimateDisplay'
+
+interface FinalEstimateResponse {
+  total_area_sqft: number;
+  estimated_cost: number;
+  materials_needed: any[];
+  labor_estimate: any;
+  timeline_estimate: string;
+  confidence_score: number;
+  processing_metadata: any;
+  document_info: any;
+}
 
 export default function ClaudeTestPage() {
-  const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [status, setStatus] = useState<'idle' | 'uploading' | 'processing' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [documentId, setDocumentId] = useState<string | null>(null)
+  const [estimateData, setEstimateData] = useState<FinalEstimateResponse | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -18,6 +30,7 @@ export default function ClaudeTestPage() {
       setFile(selectedFile)
       setStatus('idle')
       setMessage('')
+      setEstimateData(null)
     }
   }
 
@@ -29,60 +42,113 @@ export default function ClaudeTestPage() {
 
     setIsUploading(true)
     setStatus('uploading')
+    setUploadProgress(0)
+    setEstimateData(null)
     setMessage('Uploading document...')
 
     try {
-      // Step 1: Upload the file
-      const formData = new FormData()
-      formData.append('file', file)
+      // --- Step 1: Upload with progress tracking using XMLHttpRequest ---
+      const docId = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('document_type', 'claude_direct_test');
+        formData.append('project_id', `claude-test-${new Date().getTime()}`);
 
-      const uploadResponse = await fetch('/api/proxy/uploads/upload', {
-        method: 'POST',
-        body: formData,
-      })
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percentComplete);
+            setMessage(`Uploading... ${percentComplete}%`);
+          }
+        };
 
-      if (!uploadResponse.ok) {
-        throw new Error(`Upload failed: ${uploadResponse.statusText}`)
-      }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const uploadData = JSON.parse(xhr.responseText);
+            resolve(uploadData.document_id);
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(new Error(`Upload failed: ${errorData.detail || xhr.statusText}`));
+            } catch {
+              reject(new Error(`Upload failed with status: ${xhr.statusText}`));
+            }
+          }
+        };
 
-      const uploadData = await uploadResponse.json()
-      const docId = uploadData.document_id
+        xhr.onerror = () => {
+          reject(new Error('Upload failed due to a network error.'));
+        };
+
+        xhr.open('POST', '/api/proxy/documents/upload', true);
+        xhr.send(formData);
+      });
+
       setDocumentId(docId)
-
+      setMessage('Upload complete. Queueing for processing...')
       setStatus('processing')
-      setMessage('Processing document directly with Claude AI...')
 
-      // Step 2: Process with Claude synchronously. This endpoint will save the results.
+      // --- Step 2: Queue the processing task ---
       const processResponse = await fetch('/api/proxy/pipeline/process-with-claude', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          document_id: docId,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: docId }),
       })
 
-      if (!processResponse.ok) {
+      if (processResponse.status !== 202) {
         const errorData = await processResponse.json().catch(() => ({ detail: processResponse.statusText }))
         throw new Error(`Processing failed: ${errorData.detail}`)
       }
 
-      await processResponse.json() // We don't need the data, just confirmation of success.
+      const taskData = await processResponse.json()
+      const taskId = taskData.task_id
 
-      setStatus('success')
-      setMessage('Document processed successfully! Redirecting to estimate page...')
+      // --- Step 3: Poll for status ---
+      setMessage(`Processing... Status: PENDING`);
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`/api/proxy/pipeline/status/${taskId}`)
+          if (!statusResponse.ok) return;
 
-      // Step 3: Redirect to the estimate page. The data is now in the DB and can be fetched.
-      setTimeout(() => {
-        router.push(`/estimate?document_id=${docId}&source=claude-direct`)
-      }, 2000)
+          const statusData = await statusResponse.json();
+          if (statusData.status !== 'SUCCESS' && statusData.status !== 'FAILURE') {
+            setMessage(`Processing... Status: ${statusData.status}`);
+          }
+
+          if (statusData.status === 'SUCCESS') {
+            clearInterval(pollInterval);
+            setMessage('Processing complete! Fetching final estimate...');
+            
+            const estimateResponse = await fetch(`/api/proxy/pipeline/estimate/${docId}`);
+            if (estimateResponse.ok) {
+              const finalEstimate = await estimateResponse.json();
+              setEstimateData(finalEstimate);
+              setStatus('success');
+              setMessage('Estimate generated successfully!');
+            } else {
+              const errorData = await estimateResponse.json().catch(() => ({ detail: 'Failed to fetch estimate.' }));
+              throw new Error(errorData.detail);
+            }
+            setIsUploading(false);
+          } else if (statusData.status === 'FAILURE') {
+            clearInterval(pollInterval);
+            throw new Error(statusData.error || 'An unknown processing error occurred.');
+          }
+        } catch (pollError) {
+          clearInterval(pollInterval);
+          // To avoid overwriting the original error, we'll just log this one
+          // and let the main catch block handle the user-facing message.
+          console.error("Polling failed:", pollError);
+          // We re-throw the original error from the catch block below
+          throw new Error("Polling failed. Please check the console for details.");
+        }
+      }, 3000);
 
     } catch (error) {
       console.error('Error:', error)
       setStatus('error')
       setMessage(error instanceof Error ? error.message : 'An error occurred during processing')
-    } finally {
       setIsUploading(false)
     }
   }
@@ -104,7 +170,7 @@ export default function ClaudeTestPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Claude Upload Test</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Direct-to-Claude Pipeline</h1>
         <p className="text-gray-600 mb-8">
           Upload a roofing document to process it with Claude AI and generate an estimate
         </p>
@@ -126,8 +192,17 @@ export default function ClaudeTestPage() {
                 </p>
 
                 <p className="text-sm text-gray-500">
-                  PDF files up to 50MB
+                  PDF files up to 120MB
                 </p>
+
+                {status === 'uploading' && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                    <div
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                )}
 
                 <input
                   id="file-upload"

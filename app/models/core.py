@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, Text, ForeignKey, JSON, Enum
+from sqlalchemy import Column, String, Float, DateTime, Text, ForeignKey, JSON, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -41,6 +41,14 @@ class Document(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Add indexes for performance
+    __table_args__ = (
+        Index('ix_document_status', 'processing_status'),
+        Index('ix_document_created', 'created_at'),
+        Index('ix_document_project', 'project_id'),
+        Index('ix_document_filename', 'filename'),
+    )
+    
     # Relationships
     project = relationship("Project", back_populates="documents")
     measurements = relationship("Measurement", back_populates="document")
@@ -58,6 +66,13 @@ class Measurement(Base):
     measurement_type = Column(String(50))  # roof_area, wall_area, etc.
     extraction_method = Column(String(50))  # ocr, manual, calculated
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Add indexes for performance
+    __table_args__ = (
+        Index('ix_measurement_document', 'document_id'),
+        Index('ix_measurement_type', 'measurement_type'),
+        Index('ix_measurement_confidence', 'confidence_score'),
+    )
     
     # Relationships
     document = relationship("Document", back_populates="measurements")

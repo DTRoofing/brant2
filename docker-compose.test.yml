@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  test-db:
+    image: postgres:15
+    container_name: brant-test-db
+    environment:
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpass
+      - POSTGRES_DB=testdb
+    ports:
+      - "5433:5432" # Use a different host port to avoid conflict with dev db
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+
+  test-redis:
+    image: redis:7-alpine
+    container_name: brant-test-redis
+    ports:
+      - "6380:6379" # Use a different host port
+
+  test-api:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: brant-test-api
+    depends_on:
+      - test-db
+      - test-redis
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://testuser:testpass@test-db:5432/testdb
+      - CELERY_BROKER_URL=redis://test-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://test-redis:6379/0
+      - GCP_PROJECT=test-project # Use a dummy project for tests
+
+  test-worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    container_name: brant-test-worker
+    depends_on:
+      - test-redis
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://testuser:testpass@test-db:5432/testdb # Worker uses sync driver
+      - CELERY_BROKER_URL=redis://test-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://test-redis:6379/0
+      - GCP_PROJECT=test-project
+
+volumes:
+  test_postgres_data:

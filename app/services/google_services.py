@@ -1,322 +1,297 @@
 import logging
-import os
-from typing import Optional, Dict, Any
+from typing import TYPE_CHECKING, Optional, Dict, Any
 from pathlib import Path
-import json
+import tempfile
+import uuid
 
-from google.cloud import documentai_v1 as documentai
-from google.cloud import storage
-from google.cloud import vision
-from google.oauth2 import service_account
+try:
+    from google.cloud import documentai, vision, storage
+    from google.cloud.storage import Client as StorageClient, Bucket, Blob
+    from google.api_core.exceptions import GoogleAPICallError, RetryError
+    HAS_GOOGLE_CLOUD = True
+except ImportError as e:
+    logging.warning(f"Google Cloud libraries not available: {e}")
+    documentai = None
+    vision = None
+    storage = None
+    StorageClient = None
+    Bucket = None
+    Blob = None
+    GoogleAPICallError = Exception
+    RetryError = Exception
+    HAS_GOOGLE_CLOUD = False
+
+if TYPE_CHECKING:
+    from google.cloud.documentai import DocumentProcessorServiceClient
+    from google.cloud.vision import ImageAnnotatorClient
+else:
+    DocumentProcessorServiceClient = None
+    ImageAnnotatorClient = None
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-
-class GoogleCloudService:
-    """Service for interacting with Google Cloud APIs"""
-    
+class GoogleService:
     def __init__(self):
-        """Initialize Google Cloud clients"""
-        self.project_id = settings.GOOGLE_CLOUD_PROJECT_ID
-        self.processor_id = settings.DOCUMENT_AI_PROCESSOR_ID
-        self.location = settings.DOCUMENT_AI_LOCATION or "us"
-        self.bucket_name = settings.GOOGLE_CLOUD_STORAGE_BUCKET
-        
-        # Initialize credentials if available
-        self.credentials = None
-        if settings.GOOGLE_APPLICATION_CREDENTIALS:
+        self.document_ai_client: Optional[DocumentProcessorServiceClient] = None
+        self.vision_ai_client: Optional[ImageAnnotatorClient] = None
+        self.storage_client: Optional[StorageClient] = None
+        self.processor_name: Optional[str] = None
+
+    def initialize_clients(self):
+        """Initializes all Google Cloud clients. Should be called once per worker process."""
+        if not HAS_GOOGLE_CLOUD:
+            logger.warning("Google Cloud libraries not available. Document AI and Vision AI will be disabled.")
+            return
+
+        # Initialize clients only if they haven't been already for this process
+        if self.document_ai_client is None:
+            if settings.GOOGLE_CLOUD_PROJECT_ID and settings.DOCUMENT_AI_LOCATION and settings.DOCUMENT_AI_PROCESSOR_ID:
+                try:
+                    client_options = {"api_endpoint": f"{settings.DOCUMENT_AI_LOCATION}-documentai.googleapis.com"}
+                    self.document_ai_client = documentai.DocumentProcessorServiceClient(client_options=client_options)
+                    self.processor_name = self.document_ai_client.processor_path(
+                        settings.GOOGLE_CLOUD_PROJECT_ID, settings.DOCUMENT_AI_LOCATION, settings.DOCUMENT_AI_PROCESSOR_ID
+                    )
+                    logger.info("Google Document AI client initialized successfully for this process.")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Google Document AI client: {e}")
+
+        if self.vision_ai_client is None:
             try:
-                # Try both absolute and relative paths
-                cred_paths = [
-                    settings.GOOGLE_APPLICATION_CREDENTIALS,
-                    os.path.abspath(settings.GOOGLE_APPLICATION_CREDENTIALS),
-                    "/app/google-credentials.json",  # Docker container path
-                    "./google-credentials.json"  # Local path
-                ]
-                
-                for cred_path in cred_paths:
-                    if os.path.exists(cred_path):
-                        self.credentials = service_account.Credentials.from_service_account_file(
-                            cred_path
-                        )
-                        logger.info(f"Google Cloud credentials loaded successfully from: {cred_path}")
-                        break
-                
-                if not self.credentials:
-                    logger.warning(f"Credentials file not found at any location")
+                self.vision_ai_client = vision.ImageAnnotatorClient()
+                logger.info("Google Vision AI client initialized successfully for this process.")
             except Exception as e:
-                logger.error(f"Failed to load Google Cloud credentials: {e}")
-        
-        # Initialize clients
-        self._document_ai_client = None
-        self._storage_client = None
-        self._vision_client = None
-    
-    @property
-    def document_ai_client(self):
-        """Lazy initialization of Document AI client"""
-        if self._document_ai_client is None and self.credentials:
-            self._document_ai_client = documentai.DocumentProcessorServiceClient(
-                credentials=self.credentials
-            )
-        return self._document_ai_client
-    
-    @property
-    def storage_client(self):
-        """Lazy initialization of Storage client"""
-        if self._storage_client is None and self.credentials:
-            self._storage_client = storage.Client(
-                credentials=self.credentials,
-                project=self.project_id
-            )
-        return self._storage_client
-    
-    @property
-    def vision_client(self):
-        """Lazy initialization of Vision client"""
-        if self._vision_client is None and self.credentials:
-            self._vision_client = vision.ImageAnnotatorClient(
-                credentials=self.credentials
-            )
-        return self._vision_client
-    
-    async def upload_to_gcs(self, file_path: str, destination_blob_name: str) -> str:
+                logger.error(f"Failed to initialize Google Vision AI client: {e}")
+
+        if self.storage_client is None:
+            try:
+                self.storage_client = storage.Client()
+                logger.info("Google Cloud Storage client initialized successfully for this process.")
+            except Exception as e:
+                logger.error(f"Failed to initialize Google Cloud Storage client: {e}")
+
+    def _get_mime_type_from_uri(self, uri: str) -> str:
+        """Infers the MIME type from a file URI's extension."""
+        lower_uri = uri.lower()
+        if lower_uri.endswith(".pdf"):
+            return "application/pdf"
+        if lower_uri.endswith(".png"):
+            return "image/png"
+        if lower_uri.endswith((".jpg", ".jpeg")):
+            return "image/jpeg"
+        if lower_uri.endswith((".tif", ".tiff")):
+            return "image/tiff"
+        logger.warning(f"Could not determine MIME type for {uri}, defaulting to application/pdf.")
+        return "application/pdf"  # Default fallback
+
+    async def process_document_with_ai(self, doc_uri: str) -> Optional[Dict[str, Any]]:
         """
-        Upload a file to Google Cloud Storage
-        
-        Args:
-            file_path: Local path to the file
-            destination_blob_name: Name for the file in GCS
-            
-        Returns:
-            GCS URI of the uploaded file
+        Processes a document from a URI using Document AI.
+        The URI can be a local file path or a GCS URI.
         """
-        if not self.storage_client or not self.bucket_name:
-            logger.warning("Google Cloud Storage not configured")
-            return ""
-        
-        try:
-            bucket = self.storage_client.bucket(self.bucket_name)
-            blob = bucket.blob(destination_blob_name)
+        if not HAS_GOOGLE_CLOUD:
+            logger.warning("Google Cloud libraries not available. Cannot process document with Document AI.")
+            return None
             
-            blob.upload_from_filename(file_path)
-            
-            logger.info(f"File uploaded to GCS: gs://{self.bucket_name}/{destination_blob_name}")
-            return f"gs://{self.bucket_name}/{destination_blob_name}"
-        except Exception as e:
-            logger.error(f"Failed to upload to GCS: {e}")
-            return ""
-    
-    async def process_document_with_ai(self, file_path: str) -> Dict[str, Any]:
-        """
-        Process a document using Google Document AI with automatic splitting for large files
-        
-        Args:
-            file_path: Path to the document file
-            
-        Returns:
-            Extracted document data (combined from all chunks if split)
-        """
-        if not self.document_ai_client or not self.project_id or not self.processor_id:
-            logger.warning("Document AI not configured, skipping processing")
-            return {}
-        
-        try:
-            from .pdf_splitter import pdf_splitter
-            
-            # Check if PDF needs splitting
-            if pdf_splitter.needs_splitting(file_path):
-                logger.info(f"Large PDF detected, splitting into chunks: {file_path}")
-                
-                # Split PDF into chunks
-                chunks = pdf_splitter.split_pdf(file_path)
-                chunk_results = []
-                
-                # Process each chunk
-                for i, chunk in enumerate(chunks):
-                    if chunk.get('is_original', False):
-                        # Original file doesn't need splitting
-                        result = await self._process_single_document(chunk['file_path'])
-                        chunk_results.append(result)
-                    else:
-                        logger.info(f"Processing chunk {i+1}/{len(chunks)}: "
-                                   f"pages {chunk['start_page']}-{chunk['end_page']} "
-                                   f"({chunk['file_size_mb']}MB)")
-                        
-                        result = await self._process_single_document(chunk['file_path'])
-                        if result:
-                            # Add chunk metadata to result
-                            result.update({
-                                'chunk_info': chunk,
-                                'start_page': chunk['start_page'],
-                                'end_page': chunk['end_page'],
-                                'page_count': chunk['page_count']
-                            })
-                        chunk_results.append(result)
-                
-                # Merge results from all chunks
-                combined_result = pdf_splitter.merge_results(chunk_results, file_path)
-                
-                # Clean up temporary chunk files
-                pdf_splitter.cleanup_chunks(chunks)
-                
-                # Convert combined result to expected format
-                final_result = {
-                    "text": combined_result.get('combined_text', ''),
-                    "pages": combined_result.get('total_pages', 0),
-                    "entities": combined_result.get('combined_entities', []),
-                    "tables": combined_result.get('combined_tables', []),
-                    "measurements": combined_result.get('combined_measurements', []),
-                    "chunk_count": combined_result.get('chunk_count', 0),
-                    "chunk_summaries": combined_result.get('chunk_summaries', [])
-                }
-                
-                logger.info(f"Combined Document AI processing complete. "
-                           f"Processed {len(chunks)} chunks, "
-                           f"extracted {len(final_result['text'])} characters")
-                
-                return final_result
-            else:
-                # Process single document normally
-                return await self._process_single_document(file_path)
-            
-        except Exception as e:
-            logger.error(f"Document AI processing failed: {e}")
-            return {}
-    
-    async def _process_single_document(self, file_path: str) -> Dict[str, Any]:
-        """
-        Process a single document with Document AI (internal method)
-        
-        Args:
-            file_path: Path to the document file
-            
-        Returns:
-            Extracted document data
-        """
-        try:
-            # Read the file
-            with open(file_path, "rb") as file:
-                file_content = file.read()
-            
-            # Check file size
-            file_size_mb = len(file_content) / 1024 / 1024
-            if file_size_mb > 30:
-                logger.warning(f"File size {file_size_mb:.2f}MB exceeds Document AI limit")
-                return {}
-            
-            # Create the Document AI request
-            name = f"projects/{self.project_id}/locations/{self.location}/processors/{self.processor_id}"
-            
+        if not self.document_ai_client or not self.processor_name:
+            logger.error("Document AI client not initialized. Cannot process document.")
+            raise RuntimeError("Document AI client is not configured.")
+
+        logger.info(f"Processing document with Document AI: {doc_uri}")
+
+        request = None
+        if doc_uri.startswith("gs://"):
+            logger.info("Processing as GCS document.")
+            mime_type = self._get_mime_type_from_uri(doc_uri)
+            gcs_document = documentai.GcsDocument(gcs_uri=doc_uri, mime_type=mime_type)
             request = documentai.ProcessRequest(
-                name=name,
-                raw_document=documentai.RawDocument(
-                    content=file_content,
-                    mime_type="application/pdf"
-                )
+                name=self.processor_name, gcs_document=gcs_document, skip_human_review=True
             )
-            
-            # Process the document
-            logger.debug(f"Processing single document with Document AI: {file_path}")
+        else:
+            logger.warning(f"Processing as local file: {doc_uri}. This is not recommended for production.")
+            try:
+                mime_type = self._get_mime_type_from_uri(doc_uri)
+                with open(doc_uri, "rb") as f:
+                    content = f.read()
+                raw_document = documentai.RawDocument(content=content, mime_type=mime_type)
+                request = documentai.ProcessRequest(
+                    name=self.processor_name, raw_document=raw_document, skip_human_review=True
+                )
+            except FileNotFoundError:
+                logger.error(f"Local file not found: {doc_uri}")
+                raise
+
+        if not request:
+            raise ValueError("Could not create a valid Document AI request.")
+
+        try:
             result = self.document_ai_client.process_document(request=request)
+            document = result.document
             
-            # Extract relevant information
-            document_data = {
-                "text": result.document.text,
-                "pages": len(result.document.pages),
-                "entities": [],
-                "tables": [],
-                "measurements": []
+            # Process all pages for tables and calculate average confidence
+            all_tables = []
+            total_confidence = 0.0
+            if document.pages:
+                for page in document.pages:
+                    total_confidence += page.confidence
+                    for table in page.tables:
+                        all_tables.append(self._parse_table(table))
+
+            # Store raw response for debugging (best practice)
+            raw_response = {
+                "document_text": document.text,
+                "pages_count": len(document.pages) if document.pages else 0,
+                "entities_count": len(document.entities) if document.entities else 0,
+                "tables_count": len(all_tables)
             }
-            
-            # Extract entities (form fields, key-value pairs)
-            for entity in result.document.entities:
-                entity_data = {
-                    "type": entity.type_,
-                    "text": entity.mention_text,
-                    "confidence": entity.confidence
-                }
-                
-                # Check if this might be a measurement
-                if any(keyword in entity.mention_text.lower() for keyword in ["sq", "square", "feet", "ft", "area"]):
-                    document_data["measurements"].append(entity_data)
-                
-                document_data["entities"].append(entity_data)
-            
-            # Extract tables if present
-            for page in result.document.pages:
-                for table in page.tables:
-                    table_data = []
-                    for row in table.body_rows:
-                        row_data = []
-                        for cell in row.cells:
-                            cell_text = self._get_text_from_layout(cell.layout, result.document.text)
-                            row_data.append(cell_text)
-                        table_data.append(row_data)
-                    document_data["tables"].append(table_data)
-            
-            logger.debug(f"Single document processing complete. Extracted {len(document_data['text'])} characters")
-            return document_data
-            
+            logger.debug(f"Document AI raw response for {doc_uri}: {raw_response}")
+
+            return {
+                "text": document.text,
+                "tables": all_tables,
+                "entities": [self._parse_entity(entity) for entity in document.entities],
+                "confidence": (total_confidence / len(document.pages)) if document.pages else 0.0,
+                "raw_response": raw_response  # Store for debugging
+            }
+        except GoogleAPICallError as e:
+            # Handle quota limits gracefully (best practice)
+            if 'quota' in str(e).lower() or 'quota_exceeded' in str(e).lower():
+                logger.error(f"Document AI quota exceeded for {doc_uri}: {e}")
+                raise RuntimeError("Document AI quota exceeded. Please try again later.")
+            elif 'permission' in str(e).lower() or 'forbidden' in str(e).lower():
+                logger.error(f"Document AI permission denied for {doc_uri}: {e}")
+                raise RuntimeError("Document AI access denied. Check credentials and permissions.")
+            else:
+                logger.error(f"Document AI API call failed for {doc_uri}: {e}")
+                raise
+        except RetryError as e:
+            logger.error(f"Document AI retry failed for {doc_uri}: {e}")
+            raise RuntimeError("Document AI service temporarily unavailable. Please try again.")
         except Exception as e:
-            logger.error(f"Single document processing failed: {e}")
-            return {}
-    
-    def _get_text_from_layout(self, layout, document_text: str) -> str:
-        """
-        Extract text from a layout element
-        """
-        text = ""
-        for segment in layout.text_anchor.text_segments:
-            start_index = segment.start_index if segment.start_index else 0
-            end_index = segment.end_index
-            text += document_text[start_index:end_index]
-        return text.strip()
-    
-    async def analyze_image_with_vision(self, file_path: str) -> Dict[str, Any]:
-        """
-        Analyze an image using Google Cloud Vision API
-        
-        Args:
-            file_path: Path to the image file
+            logger.error(f"Document AI processing failed for {doc_uri}: {e}", exc_info=True)
+            raise
+
+    async def process_image_with_vision_ai(self, image_uri: str) -> Optional[Dict[str, Any]]:
+        """Processes an image from a URI using Vision AI."""
+        if not HAS_GOOGLE_CLOUD:
+            logger.warning("Google Cloud libraries not available. Cannot process image with Vision AI.")
+            return None
             
-        Returns:
-            Vision API analysis results
-        """
-        if not self.vision_client:
-            logger.warning("Vision API not configured")
-            return {}
+        if not self.vision_ai_client:
+            raise RuntimeError("Vision AI client is not configured.")
+
+        logger.info(f"Processing image with Vision AI: {image_uri}")
+        
+        image = vision.Image()
+        if image_uri.startswith("gs://"):
+            image.source.image_uri = image_uri
+        else:
+            with open(image_uri, "rb") as image_file:
+                content = image_file.read()
+            image.content = content
+
+        try:
+            response = self.vision_ai_client.label_detection(image=image)
+            labels = response.label_annotations
+            text_response = self.vision_ai_client.text_detection(image=image)
+            texts = text_response.text_annotations
+
+            if response.error.message:
+                raise Exception(f"Vision API error: {response.error.message}")
+
+            # Store raw response for debugging (best practice)
+            raw_response = {
+                "labels_count": len(labels) if labels else 0,
+                "text_annotations_count": len(texts) if texts else 0,
+                "has_text": bool(texts and texts[0].description)
+            }
+            logger.debug(f"Vision AI raw response for {image_uri}: {raw_response}")
+
+            return {
+                "labels": [{"description": label.description, "score": label.score} for label in labels],
+                "text": texts[0].description if texts else "",
+                "confidence": labels[0].score if labels else 0.0,
+                "raw_response": raw_response  # Store for debugging
+            }
+        except GoogleAPICallError as e:
+            # Handle quota limits gracefully (best practice)
+            if 'quota' in str(e).lower() or 'quota_exceeded' in str(e).lower():
+                logger.error(f"Vision AI quota exceeded for {image_uri}: {e}")
+                raise RuntimeError("Vision AI quota exceeded. Please try again later.")
+            elif 'permission' in str(e).lower() or 'forbidden' in str(e).lower():
+                logger.error(f"Vision AI permission denied for {image_uri}: {e}")
+                raise RuntimeError("Vision AI access denied. Check credentials and permissions.")
+            else:
+                logger.error(f"Vision AI API call failed for {image_uri}: {e}")
+                raise
+        except RetryError as e:
+            logger.error(f"Vision AI retry failed for {image_uri}: {e}")
+            raise RuntimeError("Vision AI service temporarily unavailable. Please try again.")
+        except Exception as e:
+            logger.error(f"Vision AI processing failed for {image_uri}: {e}", exc_info=True)
+            raise
+
+    def _parse_table(self, table: documentai.Document.Page.Table) -> dict:
+        return {"row_count": table.header_rows, "column_count": table.body_rows}
+
+    def _parse_entity(self, entity: documentai.Document.Entity) -> dict:
+        return {"type": entity.type_, "text": entity.mention_text, "confidence": entity.confidence}
+
+    def download_gcs_to_temp(self, gcs_object_name: str) -> str:
+        """Downloads a GCS object to a local temporary file."""
+        if not self.storage_client:
+            raise RuntimeError("GCS storage client not initialized.")
+        
+        bucket = self.storage_client.bucket(settings.GOOGLE_CLOUD_STORAGE_BUCKET)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(gcs_object_name).suffix) as tmp:
+            temp_local_path = tmp.name
+        
+        logger.info(f"Downloading {gcs_object_name} to temporary file {temp_local_path}")
         
         try:
-            with open(file_path, "rb") as image_file:
-                content = image_file.read()
-            
-            image = vision.Image(content=content)
-            
-            # Perform text detection
-            response = self.vision_client.text_detection(image=image)
-            texts = response.text_annotations
-            
-            result = {
-                "text": texts[0].description if texts else "",
-                "annotations": []
-            }
-            
-            for text in texts[1:]:  # Skip the first one as it's the full text
-                result["annotations"].append({
-                    "text": text.description,
-                    "bounds": [(vertex.x, vertex.y) for vertex in text.bounding_poly.vertices]
-                })
-            
-            logger.info(f"Vision API processing complete for {file_path}")
-            return result
-            
+            blob = bucket.blob(gcs_object_name)
+            blob.download_to_filename(temp_local_path)
+            return temp_local_path
         except Exception as e:
-            logger.error(f"Vision API processing failed: {e}")
-            return {}
+            logger.error(f"Failed to download GCS object {gcs_object_name}: {e}")
+            if Path(temp_local_path).exists():
+                Path(temp_local_path).unlink()
+            raise
+
+    def upload_temp_to_gcs(self, local_file_path: str, original_gcs_name: str) -> str:
+        """Uploads a local temporary file to GCS and returns the new object name."""
+        if not self.storage_client:
+            raise RuntimeError("GCS storage client not initialized.")
+
+        bucket = self.storage_client.bucket(settings.GOOGLE_CLOUD_STORAGE_BUCKET)
+
+        # Create a unique name in a dedicated 'extracted' folder to keep things organized
+        new_gcs_name = f"extracted/{uuid.uuid4()}/{Path(original_gcs_name).name}"
+        logger.info(f"Uploading {local_file_path} to GCS as {new_gcs_name}")
+        
+        try:
+            blob = bucket.blob(new_gcs_name)
+            blob.upload_from_filename(local_file_path)
+            return new_gcs_name
+        except Exception as e:
+            logger.error(f"Failed to upload {local_file_path} to GCS: {e}")
+            raise
+
+    def get_gcs_blob_metadata(self, gcs_object_name: str) -> Optional[Blob]:
+        """Fetches the metadata for a blob in GCS."""
+        if not self.storage_client:
+            logger.warning("GCS storage client not initialized, cannot fetch metadata.")
+            return None
+        
+        try:
+            bucket = self.storage_client.bucket(settings.GOOGLE_CLOUD_STORAGE_BUCKET)
+            return bucket.get_blob(gcs_object_name)
+        except Exception as e:
+            logger.error(f"Failed to get GCS blob metadata for {gcs_object_name}: {e}")
+            return None
 
 
-# Singleton instance
-google_service = GoogleCloudService()
+google_service = GoogleService()

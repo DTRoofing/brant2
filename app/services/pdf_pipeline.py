@@ -11,6 +11,7 @@ from app.services.processing_stages.document_analyzer import DocumentAnalyzer
 from app.services.processing_stages.content_extractor import ContentExtractor
 from app.services.processing_stages.ai_interpreter import AIInterpreter
 from app.services.processing_stages.data_validator import DataValidator
+from app.core.timeline import calculate_timeline_estimate
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +25,14 @@ class PDFProcessingPipeline:
         self.ai_interpreter = AIInterpreter()
         self.data_validator = DataValidator()
     
-    async def process_document(self, file_path: str, document_id: str) -> ProcessingResult:
+    async def process_document(self, doc_uri: str, document_id: str, processing_mode: str = "standard") -> ProcessingResult:
         """
         Process a PDF document through the complete pipeline
         
         Args:
-            file_path: Path to the PDF file
+            doc_uri: Path or GCS URI to the PDF file
             document_id: Unique document identifier
-            
+            processing_mode: The processing mode to use (e.g., "standard", "claude_only").
         Returns:
             ProcessingResult with all stage results
         """
@@ -50,7 +51,7 @@ class PDFProcessingPipeline:
             result.current_stage = ProcessingStage.ANALYZING
             analysis = await self._run_stage(
                 "Document Analysis",
-                lambda: self.document_analyzer.analyze_document(file_path),
+                lambda: self.document_analyzer.analyze_document(doc_uri),
                 result
             )
             result.analysis = analysis
@@ -60,7 +61,7 @@ class PDFProcessingPipeline:
             result.current_stage = ProcessingStage.EXTRACTING
             content = await self._run_stage(
                 "Content Extraction",
-                lambda: self.content_extractor.extract_content(file_path, analysis),
+                lambda: self.content_extractor.extract_content(doc_uri, analysis),
                 result
             )
             result.extracted_content = content
@@ -70,7 +71,7 @@ class PDFProcessingPipeline:
             result.current_stage = ProcessingStage.INTERPRETING
             interpretation = await self._run_stage(
                 "AI Interpretation",
-                lambda: self.ai_interpreter.interpret_content(content, analysis.document_type),
+                lambda: self.ai_interpreter.interpret_content(content, analysis.document_type, processing_mode),
                 result
             )
             result.ai_interpretation = interpretation
@@ -99,11 +100,12 @@ class PDFProcessingPipeline:
             logger.info(f"Pipeline completed successfully for document {document_id} in {result.processing_time_seconds:.2f}s")
             
         except Exception as e:
-            logger.error(f"Pipeline failed for document {document_id}: {e}")
+            logger.error(f"Pipeline failed for document {document_id}: {e}", exc_info=True)
             result.current_stage = ProcessingStage.FAILED
             result.errors.append(str(e))
             result.processing_time_seconds = (datetime.now() - start_time).total_seconds()
-        
+            raise  # Re-raise the exception to allow Celery to handle retries and failures
+
         return result
     
     async def _run_stage(self, stage_name: str, stage_func, result: ProcessingResult):
@@ -156,7 +158,7 @@ class PDFProcessingPipeline:
         }
         
         # Generate timeline estimate
-        timeline_estimate = self._calculate_timeline(total_area, interpretation)
+        timeline_estimate = calculate_timeline_estimate(total_area, interpretation.model_dump())
         
         # Calculate overall confidence
         confidence_score = (
@@ -195,30 +197,6 @@ class PDFProcessingPipeline:
             processing_metadata=processing_metadata,
             metadata=interpretation.metadata  # Pass through all metadata
         )
-    
-    def _calculate_timeline(self, total_area: float, interpretation: AIInterpretation) -> str:
-        """Calculate estimated project timeline"""
-        if not total_area:
-            return "Unable to estimate - no area data"
-        
-        # Base timeline calculation
-        if total_area < 2000:
-            base_days = 2
-        elif total_area < 5000:
-            base_days = 4
-        elif total_area < 10000:
-            base_days = 7
-        else:
-            base_days = 10
-        
-        # Adjust for complexity
-        if interpretation.special_requirements:
-            base_days += len(interpretation.special_requirements)
-        
-        if interpretation.damage_assessment and interpretation.damage_assessment.get('severity') == 'high':
-            base_days += 2
-        
-        return f"{base_days}-{base_days + 2} business days"
     
     async def get_processing_status(self, document_id: str) -> dict:
         """Get current processing status for a document"""

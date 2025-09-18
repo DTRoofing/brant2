@@ -1,5 +1,6 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+slowapi==0.1.9
 python-multipart==0.0.6
 sqlalchemy==2.0.23
 psycopg[binary]~=3.1
@@ -19,9 +20,12 @@ anthropic==0.21.3
 google-cloud-documentai==2.20.0
 google-cloud-storage==2.10.0
 google-cloud-vision==3.4.0
+google-cloud-secret-manager==2.19.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 alembic==1.12.1
 pytest==7.4.3
 httpx==0.25.2
 reportlab==4.1.0
+tenacity==8.2.3
+redis==4.6.0

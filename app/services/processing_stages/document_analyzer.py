@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 import re
 
@@ -8,6 +8,14 @@ from app.services.google_services import google_service
 from app.services.claude_service import claude_service
 from app.services.processing_stages.index_page_analyzer import IndexPageAnalyzer
 from app.services.processing_stages.selective_page_extractor import selective_page_extractor
+from app.core.config import settings
+
+try:
+    import pypdf
+    HAS_PYPDF = True
+except ImportError:
+    pypdf = None
+    HAS_PYPDF = False
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +27,44 @@ class DocumentAnalyzer:
         self.google_service = google_service
         self.claude_service = claude_service
         self.index_analyzer = IndexPageAnalyzer()
+    
+    async def _extract_basic_text(self, file_path: str, specific_pages=None) -> str:
+        """Extract basic text for document classification
+
+        Args:
+            file_path: Path or GCS URI to the PDF file
+            specific_pages: List of specific page numbers to extract (1-indexed), or None for first 3 pages
+        """
+        try:
+            # Google Document AI is the preferred method as it handles both local and GCS URIs.
+            if self.google_service.document_ai_client:
+                result = await self.google_service.process_document_with_ai(file_path)
+                if result and result.get('text'):
+                    return result['text'][:5000]  # Limit for classification
+
+            # Fallback to basic PDF text extraction ONLY for local files.
+            if not file_path.startswith("gs://") and HAS_PYPDF:
+                logger.warning("Falling back to pypdf for local file text extraction.")
+                with open(file_path, 'rb') as file:
+                    pdf_reader = pypdf.PdfReader(file)
+                    text = ""
+                    if specific_pages:
+                        for page_num in specific_pages:
+                            if 0 <= page_num - 1 < len(pdf_reader.pages):
+                                text += pdf_reader.pages[page_num - 1].extract_text() + "\n"
+                    else:
+                        for page in pdf_reader.pages[:3]:
+                            text += page.extract_text() + "\n"
+                    return text[:5000]
+            elif not file_path.startswith("gs://") and not HAS_PYPDF:
+                logger.warning("pypdf not available for local file text extraction.")
+            
+            logger.warning(f"Could not extract text from {file_path} using any available method.")
+            return ""
+                
+        except Exception as e:
+            logger.warning(f"Basic text extraction failed for {file_path}: {e}")
+            return ""
     
     async def analyze_document(self, file_path: str) -> DocumentAnalysis:
         """
@@ -49,16 +95,60 @@ class DocumentAnalyzer:
             # Check if we should use selective extraction for this document
             processing_file_path = file_path
             if selective_page_extractor.should_use_extraction(file_path, relevant_pages):
-                # Extract only relevant pages to a temporary PDF
-                extracted_pdf = selective_page_extractor.extract_pages(file_path, relevant_pages)
-                if extracted_pdf:
-                    processing_file_path = extracted_pdf
-                    logger.info(f"Using extracted PDF with {len(relevant_pages)} pages instead of full document")
+                if file_path.startswith("gs://"):
+                    # Handle selective extraction for GCS files
+                    downloaded_temp_path = None
+                    extracted_temp_path = None
+                    try:
+                        gcs_object_name = file_path[len(f"gs://{settings.GOOGLE_CLOUD_STORAGE_BUCKET}/"):]
+                        downloaded_temp_path = self.google_service.download_gcs_to_temp(gcs_object_name)
+                        
+                        extracted_temp_path = selective_page_extractor.extract_pages(downloaded_temp_path, relevant_pages)
+                        
+                        if extracted_temp_path:
+                            new_gcs_object_name = self.google_service.upload_temp_to_gcs(extracted_temp_path, gcs_object_name)
+                            processing_file_path = f"gs://{settings.GOOGLE_CLOUD_STORAGE_BUCKET}/{new_gcs_object_name}"
+                            logger.info(f"Using selectively extracted GCS file for processing: {processing_file_path}")
+                        else:
+                            logger.warning("Selective page extraction for GCS file did not produce a result. Using original file.")
+                    except Exception as e:
+                        logger.error(f"Selective page extraction for GCS file {file_path} failed: {e}. Using original file.", exc_info=True)
+                        processing_file_path = file_path # Fallback
+                    finally:
+                        # Cleanup local temporary files
+                        for p in [downloaded_temp_path, extracted_temp_path]:
+                            if p and Path(p).exists():
+                                try:
+                                    Path(p).unlink()
+                                    logger.debug(f"Cleaned up temp file: {p}")
+                                except OSError as e:
+                                    logger.warning(f"Failed to cleanup temp file {p}: {e}")
+                else: # It's a local file
+                    # Extract only relevant pages to a temporary PDF
+                    extracted_pdf = selective_page_extractor.extract_pages(file_path, relevant_pages)
+                    if extracted_pdf:
+                        processing_file_path = extracted_pdf
+                        logger.info(f"Using extracted PDF with {len(relevant_pages)} pages instead of full document")
+
+            # Get file metadata safely for local or GCS paths
+            file_size = 0
+            file_extension = ""
+            if file_path.startswith("gs://"):
+                gcs_object_name = file_path[len(f"gs://{settings.GOOGLE_CLOUD_STORAGE_BUCKET}/"):]
+                blob = self.google_service.get_gcs_blob_metadata(gcs_object_name)
+                if blob:
+                    file_size = blob.size
+                    file_extension = Path(blob.name).suffix
+            elif not file_path.startswith("gs://"):
+                path_obj = Path(file_path)
+                if path_obj.exists():
+                    file_size = path_obj.stat().st_size
+                    file_extension = path_obj.suffix
 
             # Merge metadata from index analysis
             metadata = {
-                'file_size': Path(file_path).stat().st_size,
-                'file_extension': Path(file_path).suffix,
+                'file_size': file_size,
+                'file_extension': file_extension,
                 'analysis_method': 'ai_classification',
                 'index_analysis': index_analysis,
                 'relevant_pages': relevant_pages,
@@ -74,50 +164,8 @@ class DocumentAnalyzer:
             )
             
         except Exception as e:
-            logger.error(f"Document analysis failed: {e}")
-            # Fallback to unknown type
-            return DocumentAnalysis(
-                document_type=DocumentType.UNKNOWN,
-                confidence=0.0,
-                processing_strategy="basic_extraction",
-                metadata={'error': str(e)}
-            )
-    
-    async def _extract_basic_text(self, file_path: str, specific_pages=None) -> str:
-        """Extract basic text for document classification
-
-        Args:
-            file_path: Path to the PDF file
-            specific_pages: List of specific page numbers to extract (1-indexed), or None for first 3 pages
-        """
-        try:
-            # Try Google Document AI first for better text extraction
-            if self.google_service.document_ai_client:
-                result = await self.google_service.process_document_with_ai(file_path)
-                if result.get('text'):
-                    return result['text'][:5000]  # Limit for classification
-
-            # Fallback to basic PDF text extraction
-            import PyPDF2
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = ""
-
-                if specific_pages:
-                    # Extract from specific pages
-                    for page_num in specific_pages:
-                        if 0 <= page_num - 1 < len(pdf_reader.pages):
-                            text += pdf_reader.pages[page_num - 1].extract_text() + "\n"
-                else:
-                    # Extract from first 3 pages
-                    for page in pdf_reader.pages[:3]:
-                        text += page.extract_text() + "\n"
-
-                return text[:5000]
-                
-        except Exception as e:
-            logger.warning(f"Basic text extraction failed: {e}")
-            return ""
+            logger.error(f"Document analysis failed catastrophically: {e}", exc_info=True)
+            raise # Re-raise the exception to allow the pipeline orchestrator to handle it.
     
     async def _classify_with_ai(self, text: str, file_path: str) -> Dict[str, Any]:
         """Use Claude AI to classify the document type"""
@@ -148,7 +196,7 @@ class DocumentAnalyzer:
             """
             
             response = self.claude_service.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-5-sonnet-20240620",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
