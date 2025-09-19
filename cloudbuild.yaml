@@ -1,0 +1,218 @@
+# cloudbuild.yaml
+# This file automates the build and deployment of the Brant application to Google Cloud Run.
+# It builds three services (API, Worker, Frontend), pushes them to Artifact Registry,
+# and deploys them as separate Cloud Run services.
+
+steps:
+  # ------------------------------------------------------------------------------------
+  # 0. Run Automated Tests
+  # ------------------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'run-tests'
+    entrypoint: /bin/sh
+    args:
+      - -c
+      - |
+        set -e
+        pip install poetry
+        poetry install --no-interaction --no-ansi
+        echo "Running automated tests..."
+        # Run tests as defined in the Makefile.
+        poetry run make test
+
+  # ------------------------------------------------------------------------------------
+  # 0.1. Scan for Vulnerable Dependencies
+  # ------------------------------------------------------------------------------------
+  - name: 'python:3.11-slim'
+    id: 'scan-dependencies'
+    entrypoint: /bin/sh
+    args:
+      - -c
+      - |
+        set -e
+        pip install pip-audit
+        echo "Scanning for known vulnerabilities in dependencies..."
+        pip-audit
+
+  # ------------------------------------------------------------------------------------
+  # 1. Build and Push API Service
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-and-push-api'
+    args:
+      - 'build'
+      - '-t'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
+      - '.'
+      - '-f'
+      - 'backend.Dockerfile'
+
+  # ------------------------------------------------------------------------------------
+  # 2. Build and Push Worker Service
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-and-push-worker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:$COMMIT_SHA'
+      - '.'
+      - '-f'
+      - 'worker.Dockerfile'
+
+  # ------------------------------------------------------------------------------------
+  # 3. Build and Push Frontend Service
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-and-push-frontend'
+    args:
+      - 'build'
+      - '-t'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_FRONTEND}:$COMMIT_SHA'
+      - '--build-arg'
+      # This URL should point to the public endpoint of your API, likely managed by a Load Balancer.
+      - 'NEXT_PUBLIC_API_URL=${_API_URL}'
+      - './frontend_ux'
+      - '-f'
+      - './frontend_ux/Dockerfile'
+      - '--target'
+      - 'production'
+
+  # ------------------------------------------------------------------------------------
+  # 4. Deploy API Service to Cloud Run
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-api'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME_API}'
+      - '--image'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--service-account'
+      - '${_SERVICE_ACCOUNT}'
+      # Connect to VPC for Cloud SQL and Memorystore access
+      - '--vpc-connector'
+      - '${_VPC_CONNECTOR}'
+      # Secure the API to only allow internal traffic and from the LB
+      - '--ingress'
+      - 'internal-and-cloud-load-balancing'
+      # Pass the project ID to enable Secret Manager integration
+      - '--set-env-vars'
+      - 'GCP_PROJECT=${PROJECT_ID}'
+    # Wait for the image to be pushed AND for tests to pass before deploying.
+    waitFor: ['build-and-push-api', 'run-tests', 'scan-dependencies']
+
+  # ------------------------------------------------------------------------------------
+  # 5. Run Database Migrations (Automated)
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'run-migrations'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'update'
+      - 'brant-db-migrations'
+      - '--image'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--execute-now' # Update the job with the new image and run it immediately.
+      - '--wait'        # Wait for the migration job to complete before proceeding.
+    # This step must wait for the API service to be deployed successfully.
+    waitFor: ['deploy-api']
+
+  # ------------------------------------------------------------------------------------
+  # 6. Deploy Worker Service to Cloud Run
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-worker'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME_WORKER}'
+      - '--image'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--service-account'
+      - '${_SERVICE_ACCOUNT}'
+      - '--vpc-connector'
+      - '${_VPC_CONNECTOR}'
+      # This is a background worker, it should not receive public traffic
+      - '--no-traffic'
+      # Keep the CPU allocated to listen for Celery tasks
+      - '--cpu-always-allocated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT=${PROJECT_ID},CELERY_CONCURRENCY=${_CELERY_CONCURRENCY}'
+    # The worker depends on its image being built and the database schema being up-to-date.
+    # Waiting for 'run-migrations' implicitly covers the test and scan gates.
+    waitFor: ['run-migrations', 'build-and-push-worker']
+
+  # ------------------------------------------------------------------------------------
+  # 7. Deploy Frontend Service to Cloud Run
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-frontend'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME_FRONTEND}'
+      - '--image'
+      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_FRONTEND}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      # This is the public-facing UI, so it must allow unauthenticated requests
+      - '--allow-unauthenticated'
+    waitFor: ['build-and-push-frontend', 'run-tests', 'scan-dependencies']
+
+# List of images to be built and pushed to Artifact Registry.
+images:
+  - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
+  - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:$COMMIT_SHA'
+  - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_FRONTEND}:$COMMIT_SHA'
+
+# Default values for substitutions. These can be overridden when triggering the build.
+substitutions:
+  _GCR_HOSTNAME: 'us-central1-docker.pkg.dev'
+  _REPO_NAME: 'brant-repo' # Your Artifact Registry repository name
+  _REGION: 'us-central1'
+  _SERVICE_NAME_API: 'brant-api'
+  _SERVICE_NAME_WORKER: 'brant-worker'
+  _SERVICE_NAME_FRONTEND: 'brant-frontend'
+  # IMPORTANT: Create a dedicated service account for the app with roles:
+  # - Secret Manager Secret Accessor
+  # - Cloud SQL Client
+  # - Document AI User
+  # - Storage Object Creator (for uploads)
+  # - Storage Object Viewer (for processing)
+  _SERVICE_ACCOUNT: 'brant-app-sa@${PROJECT_ID}.iam.gserviceaccount.com'
+  # IMPORTANT: Create a Serverless VPC Access connector to allow Cloud Run
+  # to communicate with Cloud SQL and Memorystore.
+  _VPC_CONNECTOR: 'brant-vpc-connector'
+  _CELERY_CONCURRENCY: '8'
+  # IMPORTANT: This should be the URL of your API, likely behind a Load Balancer.
+  # This creates a chicken-and-egg problem: you need the LB URL for the frontend build,
+  # but the LB targets the API service which is deployed in this pipeline.
+  # SOLUTION:
+  # 1. On first deployment, you can use the API's Cloud Run URL (e.g., https://brant-api-....a.run.app).
+  # 2. After deployment, set up the Global External HTTPS Load Balancer pointing to the `brant-api` service.
+  # 3. Update your Cloud Build trigger's substitution variable `_API_URL` with the permanent Load Balancer URL for all subsequent builds.
+  _API_URL: 'https://brant-api-....a.run.app' # <-- UPDATE THIS in your build trigger
+
+options:
+  # Use a machine type with more memory for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
