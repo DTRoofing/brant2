@@ -14,13 +14,11 @@ steps:
       - -c
       - |
         set -e
-        apt-get update && apt-get install -y --no-install-recommends build-essential make
-        pip install -r requirements.txt
+        pip install poetry
+        poetry install --no-interaction --no-ansi
         echo "Running automated tests..."
         # Run tests as defined in the Makefile.
-        # If tests fail, the 'set -e' command will cause this step to fail,
-        # halting the entire build process.
-        make test
+        poetry run make test
 
   # ------------------------------------------------------------------------------------
   # 0.1. Scan for Vulnerable Dependencies
@@ -34,7 +32,7 @@ steps:
         set -e
         pip install pip-audit
         echo "Scanning for known vulnerabilities in dependencies..."
-        pip-audit -r requirements.txt
+        pip-audit
 
   # ------------------------------------------------------------------------------------
   # 1. Build and Push API Service
@@ -198,7 +196,8 @@ substitutions:
   # - Secret Manager Secret Accessor
   # - Cloud SQL Client
   # - Document AI User
-  # - Storage Object Admin
+  # - Storage Object Creator (for uploads)
+  # - Storage Object Viewer (for processing)
   _SERVICE_ACCOUNT: 'brant-app-sa@${PROJECT_ID}.iam.gserviceaccount.com'
   # IMPORTANT: Create a Serverless VPC Access connector to allow Cloud Run
   # to communicate with Cloud SQL and Memorystore.

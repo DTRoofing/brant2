@@ -225,7 +225,7 @@ All `test_*.py`, `check_*.py`, `create_*.py` files moved to `tests/` directory
 ### **Remaining Work** (Non-Critical):
 1. Complete OCR initialization (infrastructure ready)
 2. Add rate limiting (nice-to-have)
-3. Implement health checks (monitoring)
+3. Implement business-logic health checks (e.g., AI service connectivity)
 4. Automate initial secret population (currently a manual step post-Terraform)
 
 ---

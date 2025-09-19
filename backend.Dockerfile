@@ -1,19 +1,18 @@
 # ---- Builder Stage ----
 # This stage installs dependencies and builds wheels.
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install build tools that are only needed for this stage
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Install poetry
+RUN pip install poetry
 
-# Copy only the requirements file to leverage Docker cache
-COPY requirements.txt .
+# Copy poetry dependency files
+COPY poetry.lock pyproject.toml ./
 
-# Build wheels for all dependencies, which is faster than installing directly
-RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
-
+# Install dependencies using poetry, without creating a virtualenv
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-dev --no-interaction --no-ansi
 
 # ---- Final Stage ----
 # This is the final, minimal image that will be deployed.
@@ -24,11 +23,8 @@ RUN addgroup --system app && adduser --system --group app
 
 WORKDIR /app
 
-# Copy the pre-built wheels from the builder stage
-COPY --from=builder /app/wheels /wheels
-
-# Install the dependencies from the wheels
-RUN pip install --no-cache /wheels/*
+# Copy installed dependencies from the builder stage
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Copy the application code
 # This comes after pip install to leverage caching
@@ -38,8 +34,8 @@ COPY --chown=app:app ./app ./app
 USER app
 
 # Expose the port the application runs on
-# Cloud Run provides the PORT environment variable. Default to 8080 for local use.
-EXPOSE 8080
+# This should match the default port used in the CMD instruction for clarity.
+EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD curl -f http://localhost:3001/api/v1/health || exit 1

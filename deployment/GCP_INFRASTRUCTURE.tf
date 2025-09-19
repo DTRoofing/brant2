@@ -25,11 +25,8 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "db_password" {
-  description = "The password for the Cloud SQL database user. This should be a strong, generated password."
-  type        = string
-  sensitive   = true
-}
+# Database password is now fetched from Google Secret Manager
+# See secrets.tf for the data source configuration
 
 variable "db_user" {
   description = "The username for the Cloud SQL database."
@@ -132,7 +129,8 @@ resource "google_project_iam_member" "sa_roles" {
     "roles/secretmanager.secretAccessor",
     "roles/cloudsql.client",
     "roles/documentai.user",
-    "roles/storage.objectAdmin" # As per cloudbuild.yaml
+    "roles/storage.objectCreator", # Least privilege for creating objects
+    "roles/storage.objectViewer"  # To read objects for processing
   ])
 
   project = var.project_id
@@ -223,7 +221,7 @@ resource "google_sql_database" "database" {
 resource "google_sql_user" "user" {
   name     = var.db_user
   instance = google_sql_database_instance.postgres.name
-  password = var.db_password
+  password = local.db_password
 }
 
 # 4. Memorystore for Redis instance
@@ -251,6 +249,34 @@ resource "google_storage_bucket" "uploads_bucket" {
   location                    = var.region
   force_destroy               = false # Set to true for dev/test if you need to easily destroy it
   uniform_bucket_level_access = true
+
+  # Add CORS configuration to allow uploads from the frontend
+  cors {
+    origin          = ["*"] # For production, change to your frontend domain: ["https://app.brant-roofing.com"]
+    method          = ["PUT", "POST", "GET"]
+    response_header = ["Content-Type", "Content-Length"]
+    max_age_seconds = 3600
+  }
+
+  # Add lifecycle rules to manage costs
+  lifecycle_rule {
+    condition {
+      age = 30 # days
+    }
+    action {
+      type = "SetStorageClass"
+      storage_class = "NEARLINE"
+    }
+  }
+  lifecycle_rule {
+    condition {
+      matches_prefix = ["extracted/"]
+      age = 7 # days
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 # ------------------------------------------------------------------------------
@@ -272,7 +298,7 @@ resource "google_secret_manager_secret" "secrets" {
 # IMPORTANT: You MUST manually update the placeholder values in the GCP console after creation.
 resource "google_secret_manager_secret_version" "secret_versions" {
   for_each = {
-    "brant-database-url"                  = "postgresql+asyncpg://${var.db_user}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${var.db_name}"
+    "brant-database-url"                  = "postgresql+asyncpg://${var.db_user}:${local.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${var.db_name}"
     "brant-celery-broker-url"             = "redis://${google_redis_instance.redis.host}:6379/0"
     "brant-celery-result-backend"         = "redis://${google_redis_instance.redis.host}:6379/0"
     "brant-google-cloud-storage-bucket"   = google_storage_bucket.uploads_bucket.name

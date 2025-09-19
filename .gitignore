@@ -1,5 +1,6 @@
 # Environment variables
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
@@ -23,6 +24,7 @@ parts/
 sdist/
 var/
 wheels/
+requirements.txt
 *.egg-info/
 .installed.cfg
 *.egg
@@ -34,6 +36,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+.venv
 
 # IDE
 .vscode/
@@ -41,6 +44,7 @@ venv.bak/
 *.swp
 *.swo
 *~
+.project
 
 # OS
 .DS_Store
@@ -170,15 +174,6 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 
 # Spyder project settings
 .spyderproject

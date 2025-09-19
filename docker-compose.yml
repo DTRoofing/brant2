@@ -15,7 +15,7 @@ x-api-base: &api-base
     redis:
       condition: service_healthy
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/pipeline/health"]
+    test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/health"]
     interval: 30s
     timeout: 10s
     retries: 5
@@ -78,6 +78,8 @@ services:
     profiles: ["local"] # This is for local .env-based development
     env_file:
       - .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,6 +116,8 @@ services:
     profiles: ["local"] # This is for local .env-based development
     env_file:
       - .env
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
     volumes:
       - ./app:/app/app
       # Mount credentials for local development against GCP
@@ -128,6 +132,8 @@ services:
     <<: *api-base
     container_name: brant-api-gcp
     profiles: ["gcp"]
+    # This profile is for LOCAL DEVELOPMENT against live GCP services.
+    # It uses your local gcloud ADC to authenticate.
     environment:
       # This tells the app to fetch secrets from Google Secret Manager.
       # The GCP_PROJECT variable must be set on your host machine.
@@ -158,6 +164,8 @@ services:
     <<: *worker-base
     container_name: brant-worker-gcp
     profiles: ["gcp"]
+    # This profile is for LOCAL DEVELOPMENT against live GCP services.
+    # It uses your local gcloud ADC to authenticate.
     environment:
       - GCP_PROJECT
     volumes:

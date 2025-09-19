@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Optional, Dict, Any
 from pathlib import Path
 import tempfile
 import uuid
+from datetime import timedelta
 
 try:
     from google.cloud import documentai, vision, storage
@@ -293,5 +294,30 @@ class GoogleService:
             logger.error(f"Failed to get GCS blob metadata for {gcs_object_name}: {e}")
             return None
 
+    def generate_upload_signed_url_v4(self, gcs_object_name: str, content_type: str, size: int) -> str:
+        """
+        Generates a v4 signed URL for uploading a file, with content restrictions.
+        """
+        if not self.storage_client:
+            raise RuntimeError("GCS storage client not initialized.")
+
+        # Enforce file size limit from settings
+        if size > settings.MAX_FILE_SIZE:
+            raise ValueError(f"File size {size} exceeds maximum allowed size of {settings.MAX_FILE_SIZE} bytes.")
+
+        bucket = self.storage_client.bucket(settings.GOOGLE_CLOUD_STORAGE_BUCKET)
+        blob = bucket.blob(gcs_object_name)
+
+        # Generate a URL that is valid for 15 minutes
+        expiration = timedelta(minutes=15)
+
+        # Enforce content type and size via headers
+        headers = {
+            "Content-Type": content_type,
+            "Content-Length": str(size),
+        }
+
+        url = blob.generate_signed_url(version="v4", expiration=expiration, method="PUT", headers=headers)
+        return url
 
 google_service = GoogleService()

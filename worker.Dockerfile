@@ -1,18 +1,18 @@
 # ---- Builder Stage ----
 # This stage installs dependencies and builds wheels.
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install build tools that are only needed for this stage
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential
+# Install poetry
+RUN pip install poetry
 
-# Copy only the requirements file to leverage Docker cache
-COPY requirements.txt .
+# Copy poetry dependency files
+COPY poetry.lock pyproject.toml ./
 
-# Build wheels for all dependencies, which is faster than installing directly
-RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
-
+# Install dependencies using poetry, without creating a virtualenv
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-dev --no-interaction --no-ansi
 
 # ---- Final Stage ----
 # This is the final, minimal image that will be deployed.
@@ -22,7 +22,7 @@ FROM python:3.11-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies required for PDF processing and computer vision
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     poppler-utils \
@@ -39,11 +39,8 @@ RUN apt-get update && apt-get install -y \
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the pre-built wheels from the builder stage
-COPY --from=builder /app/wheels /wheels
-
-# Install Python dependencies from the wheels
-RUN pip install --no-cache-dir /wheels/*
+# Copy installed dependencies from the builder stage
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Create a non-root user for security
 RUN addgroup --system appuser && adduser --system --group appuser
