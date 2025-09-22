@@ -1,3 +1,16 @@
+---
+title: "Brant Roofing System - API Documentation"
+version: "1.4.0"
+last_updated: "2025-01-15"
+owner: "API Development Team"
+audience: "Developers, Integration Partners"
+status: "Active"
+type: "API Reference"
+tags: ["api", "rest", "endpoints", "integration", "reference"]
+related_docs: ["01-system-overview.md", "14-security-compliance.md"]
+priority: "Critical"
+---
+
 # Brant Roofing System - API Documentation
 
 ## 🔗 API Overview

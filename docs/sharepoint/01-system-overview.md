@@ -1,3 +1,16 @@
+---
+title: "Brant Roofing System - System Overview"
+version: "1.2.0"
+last_updated: "2025-01-15"
+owner: "Product Team"
+audience: "All Stakeholders, Business Users"
+status: "Active"
+type: "System Overview"
+tags: ["overview", "business", "features", "architecture"]
+related_docs: ["02-architecture-diagram.md", "04-api-documentation.md"]
+priority: "Critical"
+---
+
 # Brant Roofing System - System Overview
 
 ## 🏠 Business Overview

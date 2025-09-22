@@ -1,3 +1,16 @@
+---
+title: "Brant Roofing System - Automated Test Suite"
+version: "1.3.0"
+last_updated: "2025-01-15"
+owner: "QA Team"
+audience: "Developers, QA Engineers, CI/CD Engineers"
+status: "Active"
+type: "Test Documentation"
+tags: ["testing", "automation", "ci-cd", "quality-assurance"]
+related_docs: ["docs/INTEGRATION_TESTING_STRATEGY.md", "docs/TEST_EXECUTION_REPORT.md"]
+priority: "High"
+---
+
 # Brant Roofing System - Automated Test Suite
 
 This directory contains comprehensive automated tests for the Brant Roofing

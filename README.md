@@ -1,3 +1,15 @@
+---
+title: "Brant Roofing System"
+version: "1.1.0"
+last_updated: "2025-01-15"
+owner: "Development Team"
+audience: "Developers, Users, Stakeholders"
+status: "Active"
+type: "Project Overview"
+tags: ["main", "overview", "quickstart", "roofing", "ai"]
+priority: "Critical"
+---
+
 # 🏠 Brant Roofing System
 
 AI-powered roofing estimation system using Google Document AI and Anthropic Claude.

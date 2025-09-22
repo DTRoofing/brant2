@@ -1,4 +1,17 @@
 
+---
+title: "Deployment Testing Strategy"
+version: "1.0.0"
+last_updated: "2025-01-15"
+owner: "QA Team"
+audience: "QA Engineers, DevOps Team"
+status: "Active"
+type: "Testing Strategy"
+tags: ["deployment-testing", "strategy", "testing", "devops"]
+related_docs: ["../docs/DEPLOYMENT.md", "../docs/INTEGRATION_TESTING_STRATEGY.md"]
+priority: "High"
+---
+
 # Deployment Testing Strategy
 
 This document outlines the deployment testing strategy for the Brant Roofing System to ensure reliable and consistent deployments across all environments.

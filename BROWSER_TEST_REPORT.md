@@ -1,3 +1,18 @@
+---
+title: "Browser Test Report - Brant Roofing System"
+version: "1.2.0"
+last_updated: "2025-01-15"
+owner: "QA Team"
+audience: "QA Engineers, Developers, DevOps Team"
+status: "Active"
+type: "Test Report"
+tags: ["browser-testing", "selenium", "automation", "ui-testing"]
+related_docs: ["TEST_README.md", "docs/E2E_TEST_EXECUTION_LOG.md"]
+priority: "Medium"
+test_date: "2024-09-18"
+test_platform: "Windows 10, Chrome WebDriver"
+---
+
 # 🌐 Browser Test Report - Brant Roofing System
 
 ## Test Execution Summary

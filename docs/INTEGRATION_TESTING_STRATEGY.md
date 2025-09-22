@@ -1,3 +1,16 @@
+---
+title: "Integration Testing Strategy"
+version: "1.1.0"
+last_updated: "2025-01-15"
+owner: "QA Team"
+audience: "QA Engineers, Developers"
+status: "Active"
+type: "Testing Strategy"
+tags: ["integration-testing", "strategy", "testing", "quality-assurance"]
+related_docs: ["TEST_EXECUTION_REPORT.md", "E2E_TEST_EXECUTION_LOG.md"]
+priority: "High"
+---
+
 # Integration Testing Strategy
 
 This document outlines the strategy for integration testing the Brant Roofing System. While unit tests verify individual components in isolation, integration tests ensure that these components work together correctly in a realistic environment.

@@ -1,4 +1,18 @@
-# 🏠 Brant Roofing System - Complete Setup Instructions
+---
+title: "Brant Roofing System - Setup Instructions"
+version: "2.1.0"
+last_updated: "2025-01-15"
+owner: "Development Team"
+audience: "Developers, System Administrators"
+status: "Active"
+type: "Setup Guide"
+tags: ["setup", "installation", "docker", "development"]
+related_docs: ["DEPLOYMENT.md", "MARKDOWN_STYLE_GUIDE.md"]
+review_date: "2025-04-15"
+priority: "High"
+---
+
+# Brant Roofing System - Setup Instructions
 
 ## 📋 Step-by-Step Setup Guide
 

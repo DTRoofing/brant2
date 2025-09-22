@@ -1,3 +1,15 @@
+---
+title: "Changelog - Brant Roofing System"
+version: "1.1.0"
+last_updated: "2025-01-15"
+owner: "Development Team"
+audience: "Developers, DevOps Team, Stakeholders"
+status: "Active"
+type: "Changelog"
+tags: ["changelog", "version-history", "releases"]
+priority: "Medium"
+---
+
 # Changelog - Brant Roofing System
 
 ## v1.1.0 - September 18, 2025

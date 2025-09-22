@@ -1,4 +1,16 @@
-# Brant Roofing System - SharePoint Documentation
+---
+title: "Brant Roofing System - SharePoint Documentation Index"
+version: "1.1.0"
+last_updated: "2025-01-15"
+owner: "Documentation Team"
+audience: "SharePoint Administrators, Content Managers"
+status: "Active"
+type: "Documentation Index"
+tags: ["sharepoint", "documentation", "index", "navigation"]
+priority: "Medium"
+---
+
+# Brant Roofing System - SharePoint Documentation Index
 
 This folder contains comprehensive documentation for the Brant Roofing System that can be used to populate your SharePoint site.
 
