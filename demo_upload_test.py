@@ -87,15 +87,18 @@ class UploadDemo:
         """Generate upload URL"""
         self.print_step(2, "Generate Upload URL")
         
+        file_size = os.path.getsize(self.test_file)
         payload = {
-            "filename": "small_set.pdf",
-            "content_type": "application/pdf"
+            "file_name": os.path.basename(self.test_file),
+            "content_type": "application/pdf",
+            "size": file_size
         }
         
         print("📤 Requesting upload URL from API...")
-        response = requests.post(f"{self.api_url}/api/v1/documents/generate-url", json=payload)
+        # Corrected endpoint from /generate-url to /generate-signed-url
+        response = requests.post(f"{self.api_url}/api/v1/documents/generate-signed-url", json=payload)
         
-        if response.status_code == 200:
+        if response.status_code == 201:  # Endpoint now returns 201 CREATED
             data = response.json()
             print(f"✅ Upload URL generated successfully")
             print(f"📁 GCS Object: {data['gcs_object_name']}")
@@ -103,6 +106,7 @@ class UploadDemo:
             return data
         else:
             print(f"❌ Failed to generate upload URL: {response.status_code}")
+            print(f"   Response: {response.text}")
             return None
     
     def upload_file(self, upload_data):
@@ -134,7 +138,7 @@ class UploadDemo:
         self.print_step(4, "Start Document Processing")
         
         payload = {
-            "original_filename": "small_set.pdf",
+            "original_filename": os.path.basename(self.test_file),
             "gcs_object_name": upload_data['gcs_object_name'],
             "document_type": "roof_estimate"
         }
@@ -153,44 +157,100 @@ class UploadDemo:
             return None
     
     def monitor_processing(self, document_id):
-        """Monitor processing progress"""
+        """Monitor processing progress via the proper API endpoint."""
         self.print_step(5, "Monitor Processing Progress")
         
-        print(f"👀 Monitoring document {document_id}...")
+        print(f"👀 Monitoring document {document_id} via API...")
+        print("   (This uses the GET /api/v1/pipeline/status/{id} endpoint)")
         print("📊 Status updates:")
         
         start_time = time.time()
-        max_wait = 60  # 1 minute for demo
-        
-        while time.time() - start_time < max_wait:
+        max_wait_seconds = 120  # 2 minutes for demo
+        last_status = None
+
+        while time.time() - start_time < max_wait_seconds:
             try:
-                result = subprocess.run([
-                    "docker", "exec", "brant-postgres-local", 
-                    "psql", "-U", "brant_user", "-d", "brant_roofing", 
-                    "-t", "-c", f"SELECT processing_status FROM documents WHERE id = '{document_id}';"
-                ], capture_output=True, text=True, timeout=5)
+                # Use the dedicated API endpoint to check status
+                response = requests.get(f"{self.api_url}/api/v1/pipeline/status/{document_id}", timeout=10)
                 
-                if result.returncode == 0:
-                    status = result.stdout.strip()
+                if response.status_code == 200:
+                    data = response.json()
+                    status = data.get("status")
                     elapsed = int(time.time() - start_time)
-                    print(f"   📈 {status} (elapsed: {elapsed}s)")
+
+                    if status != last_status:
+                        print(f"   - {elapsed:3d}s: Status changed to {status}")
+                        last_status = status
                     
-                    if status in ["COMPLETED", "FAILED"]:
-                        print(f"✅ Processing finished: {status}")
+                    if status in ["COMPLETED", "FAILED", "CANCELLED"]:
+                        print(f"\n✅ Processing finished with final status: {status}")
+                        if status == "FAILED":
+                            print(f"   Error details: {data.get('error', 'No details provided.')}")
                         return status
+                else:
+                    print(f"   - Warning: API returned status {response.status_code}")
                 
-                time.sleep(3)
-                
-            except Exception as e:
-                print(f"⚠️ Error checking status: {e}")
-                time.sleep(3)
+                time.sleep(5)  # Poll every 5 seconds
+            except requests.exceptions.RequestException as e:
+                print(f"   - Warning: API request failed: {e}")
+                time.sleep(5)
         
-        print("⏰ Monitoring timeout (demo limit reached)")
+        print(f"\n⏰ Monitoring timeout reached after {max_wait_seconds} seconds.")
         return "TIMEOUT"
     
+    def fetch_and_display_results(self, document_id):
+        """Fetch and display the final estimate results from the API."""
+        self.print_step(6, "Fetch Final Estimate")
+
+        print(f"📞 Fetching final estimate for document {document_id}...")
+        print(f"   (This uses the GET /api/v1/claude/estimate/{document_id} endpoint)")
+
+        try:
+            response = requests.get(f"{self.api_url}/api/v1/claude/estimate/{document_id}", timeout=30)
+
+            if response.status_code == 200:
+                data = response.json()
+                print("\n" + "-" * 20 + " 📝 FINAL ESTIMATE " + "-" * 20)
+                print(f"  📄 Document: {data.get('document_info', {}).get('filename', 'N/A')}")
+                print(f"  Total Roof Area: {data.get('total_area_sqft', 0):.2f} sqft")
+                print(f"  Estimated Cost: ${data.get('estimated_cost', 0):,.2f}")
+                print(f"  Confidence Score: {data.get('confidence_score', 0):.1%}")
+                print(f"  Timeline Estimate: {data.get('timeline_estimate', 'N/A')}")
+                
+                print("\n  Materials Needed:")
+                materials = data.get('materials_needed', [])
+                if materials:
+                    for material in materials:
+                        print(f"    - Type: {material.get('type', 'N/A')}, Quantity: {material.get('quantity', 0):.2f} {material.get('unit', '')}")
+                else:
+                    print("    - No materials listed.")
+
+                print("\n  Labor Estimate:")
+                labor = data.get('labor_estimate', {})
+                if labor:
+                    print(f"    - Hours: {labor.get('estimated_hours', 'N/A'):.1f}, Crew Size: {labor.get('crew_size', 'N/A')}")
+                    print(f"    - Total Labor Cost: ${labor.get('total_labor_cost', 0):,.2f}")
+                else:
+                    print("    - No labor estimate provided.")
+
+                print("\n  Processing Metadata:")
+                metadata = data.get('processing_metadata', {})
+                print(f"    - Processing Time: {metadata.get('processing_time_seconds', 0):.2f} seconds")
+                print(f"    - Stages Completed: {', '.join(metadata.get('stages_completed', []))}")
+                if metadata.get('errors'):
+                    print(f"    - Errors: {', '.join(metadata.get('errors'))}")
+                if metadata.get('warnings'):
+                    print(f"    - Warnings: {', '.join(metadata.get('warnings'))}")
+                print("-" * 58)
+            else:
+                print(f"❌ Failed to fetch final estimate. Status: {response.status_code}")
+                print(f"   Error: {response.json() if response.content else 'No content'}")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ API request failed: {e}")
+
     def show_monitoring_interfaces(self):
         """Show monitoring interfaces"""
-        self.print_step(6, "Access Monitoring Interfaces")
+        self.print_step(7, "Access Monitoring Interfaces")
         
         print("🌐 Available monitoring interfaces:")
         print(f"   📊 Flower (Celery): {self.flower_url}")
@@ -204,7 +264,7 @@ class UploadDemo:
     
     def show_worker_logs(self):
         """Show recent worker logs"""
-        self.print_step(7, "View Worker Logs")
+        self.print_step(8, "View Worker Logs")
         
         print("🔍 Recent worker activity:")
         try:
@@ -264,10 +324,19 @@ class UploadDemo:
         # Step 5: Monitor processing
         final_status = self.monitor_processing(processing_data['id'])
         
-        # Step 6: Show monitoring interfaces
+        # Step 6: Fetch and display results if completed
+        if final_status == "COMPLETED":
+            self.wait_for_user("Processing complete! Continue to fetch final results?")
+            self.fetch_and_display_results(processing_data['id'])
+        else:
+            print(f"\n⚠️ Skipping final results fetch because status is {final_status}.")
+
+        self.wait_for_user("Continue to view monitoring interfaces and logs?")
+        
+        # Step 7: Show monitoring interfaces
         self.show_monitoring_interfaces()
         
-        # Step 7: Show worker logs
+        # Step 8: Show worker logs
         self.show_worker_logs()
         
         # Final summary
@@ -280,6 +349,7 @@ class UploadDemo:
         print("   ✅ Direct file upload to Google Cloud Storage")
         print("   ✅ Document processing pipeline initiation")
         print("   ✅ Real-time processing status monitoring")
+        print("   ✅ Final estimate data retrieval and display")
         print("   ✅ Worker task management")
         print("   ✅ Database integration")
         

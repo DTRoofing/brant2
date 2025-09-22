@@ -1,6 +1,7 @@
 import logging
 from typing import TYPE_CHECKING, Optional, Dict, Any
 from pathlib import Path
+import google.auth
 import tempfile
 import uuid
 from datetime import timedelta
@@ -184,7 +185,7 @@ class GoogleService:
             raise RuntimeError("Vision AI client is not configured.")
 
         logger.info(f"Processing image with Vision AI: {image_uri}")
-        
+
         image = vision.Image()
         if image_uri.startswith("gs://"):
             image.source.image_uri = image_uri

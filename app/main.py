@@ -12,10 +12,8 @@ import time
 
 from app.core.exceptions import BrantAPIException
 
-from app.api.v1.router import api_router
 from app.core.config import settings
-# from app.api.v1.endpoints import documents # Direct import to fix routing issue
-# from app.workers.celery_app import celery_app  # Import to configure Celery client - disabled
+from app.api.v1.endpoints import health, uploads, pipeline, claude_processing
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,29 +45,42 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configure CORS with specific origins for security
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Frontend development
-    "http://localhost:3001",  # API development
-    "http://brant-frontend:3000",  # Docker frontend
-    "https://brant-roofing.com",  # Production domain (replace with actual)
-]
-
-# In production, use environment variable for allowed origins
-if os.getenv("PRODUCTION", "false").lower() == "true":
-    allowed_origins = os.getenv("CORS_ORIGINS", "").split(",")
-    allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
-else:
-    allowed_origins = ALLOWED_ORIGINS
-
+# Configure CORS. Origins are managed via the `CORS_ORIGINS` environment
+# variable in your settings. This provides a single source of truth for configuration.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    # It is more secure to specify the exact headers your frontend sends.
+    # The wildcard '*' is too permissive.
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+    ],
     max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+# Add file size validation middleware
+@app.middleware("http")
+async def limit_upload_size_middleware(request: Request, call_next):
+    """
+    Check for 'content-length' header and reject request if it exceeds the limit.
+    This provides a fast first-pass check for file uploads.
+    """
+    if "content-length" in request.headers:
+        try:
+            content_length = int(request.headers["content-length"])
+            if content_length > settings.MAX_FILE_SIZE:
+                logger.warning(f"Rejected upload: file size {content_length} exceeds limit of {settings.MAX_FILE_SIZE}.")
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": f"File too large. Maximum size is {settings.MAX_FILE_SIZE} bytes."}
+                )
+        except (ValueError, TypeError):
+            logger.warning(f"Could not parse content-length header: {request.headers['content-length']}")
+            # Let it pass to be handled by the endpoint logic if header is malformed
+    return await call_next(request)
 
 # Add request/response logging middleware
 @app.middleware("http")
@@ -128,7 +139,12 @@ async def general_exception_handler(request: Request, exc: Exception):
         }
     )
 
-app.include_router(api_router, prefix="/api/v1")
+
+# Include all the API routers with their specific prefixes
+app.include_router(health.router, prefix="/api/v1", tags=["Health"])
+app.include_router(uploads.router, prefix="/api/v1/documents", tags=["Documents"])
+app.include_router(pipeline.router, prefix="/api/v1/pipeline", tags=["Pipeline"])
+app.include_router(claude_processing.router, prefix="/api/v1/claude", tags=["Claude"])
 
 @app.get("/")
 async def root():

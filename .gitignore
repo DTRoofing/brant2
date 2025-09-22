@@ -134,6 +134,7 @@ secrets/
 *.json
 !package.json
 !package-lock.json
+!app/config/cost_config.json
 !tsconfig.json
 
 # Test files
@@ -153,8 +154,12 @@ test_*.png
 .dockerignore
 
 # Alembic
-alembic/versions/*.py
+# Ensure the alembic directory and its versions subdirectory are not ignored,
+# then explicitly un-ignore the python migration files within.
+!alembic/
+!alembic/versions/
 !alembic/versions/.gitkeep
+!alembic/versions/*.py
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -164,9 +169,6 @@ alembic/versions/*.py
 
 # pipenv
 Pipfile.lock
-
-# Poetry
-poetry.lock
 
 # Celery
 celerybeat-schedule

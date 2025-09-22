@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     ENABLE_GOOGLE_VISION: bool = False
     GOOGLE_VISION_API_KEY: Optional[str] = None
     
+    # Database SSL mode. Set to "require" in production, "disable" for local dev.
+    DB_SSL_MODE: str = "disable"
+
+     #The Model Version for Claude
+    CLAUDE_MODEL_VERSION: str = "claude-3-5-sonnet-20240620"
+    
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'

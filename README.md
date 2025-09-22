@@ -2,27 +2,33 @@
 
 AI-powered roofing estimation system using Google Document AI and Anthropic Claude.
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Local Development)
+
+This project uses a `Makefile` for easy setup and management.
 
 1. **Prerequisites**:
-   - Docker and Docker Compose
-   - Google Cloud service account key
+   - Docker and Docker Compose must be running.
+   - A Google Cloud service account key file (`.json`).
+   - A `.env` file configured for your local environment.
 
 2. **Setup**:
+   - Create a `secrets/` directory in the project root if it doesn't exist.
+
+   > **⚠️ IMPORTANT:** The next step is mandatory. If the `google-credentials.json` file is missing, Docker will create an empty directory in its place inside the containers. This will cause the `api` and `worker` services to crash immediately on startup with an `IsADirectoryError`.
+
+   - Place your Google Cloud service account key file in the `secrets/` directory and name it `google-credentials.json`.
+   - Run the automated setup script:
 
    ```bash
-   # Place your service account key
-   cp your-service-account.json \
-     secrets/brant-roofing-system-2025-a5b8920b36d5.json
-   
-   # Start the system
-   docker-compose up --build
+   make setup
    ```
+   This will check prerequisites, build containers, and start the services.
 
 3. **Access**:
    - API: <http://localhost:3001>
    - API Docs: <http://localhost:3001/docs>
    - Health Check: <http://localhost:3001/api/v1/health>
+   - Celery Monitor: <http://localhost:5555>
 
 ## 📁 Project Structure
 
@@ -61,7 +67,7 @@ brant/
 ## 📚 Documentation
 
 - [API Documentation](http://localhost:3001/docs)
-- [Deployment Guide](docs/DEPLOYMENT.md)
+- [GCP Deployment Guide](docs/GCP_DEPLOYMENT.md)
 - [Testing Strategy](docs/INTEGRATION_TESTING_STRATEGY.md)
 
 ## 🔧 Configuration
@@ -69,31 +75,36 @@ brant/
 Environment variables are configured in `.env`:
 
 - Google Cloud credentials
-- Database connection
+- Database and Redis connection strings
 - API keys
 - Service settings
 
 ## 🧪 Testing
 
+Use the `Makefile` to run tests inside the Docker environment:
+
 ```bash
-# Run tests
+# Run all tests
 make test
 
-# Run specific test suites
-make test-unit
+# Run integration tests
 make test-integration
+
+# Run end-to-end tests
 make test-e2e
 ```
 
 ## 📦 Deployment
 
-```bash
-# Deploy to GCP
-make deploy-gcp
+Deployment to Google Cloud is automated via a CI/CD pipeline defined in `cloudbuild.yaml`.
 
-# Deploy locally
-docker-compose up --build
-```
+1.  **Prerequisites**: Ensure all Google Cloud infrastructure is set up as described in the GCP Deployment Guide.
+2.  **Trigger Deployment**: Push your changes to the `main` branch.
+
+    ```bash
+    git push origin main
+    ```
+3.  **Monitor**: Check the build status in the Google Cloud Build console.
 
 ## 🤝 Contributing
 

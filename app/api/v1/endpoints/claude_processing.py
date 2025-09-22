@@ -2,6 +2,9 @@
 Claude AI Processing Endpoint
 Direct processing of documents with Claude AI
 """
+# In app/api/v1/endpoints/claude_process.py
+
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Response, status
 
 import logging
 from datetime import datetime

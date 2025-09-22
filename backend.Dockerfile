@@ -5,7 +5,7 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 # Install poetry
-RUN pip install poetry
+RUN pip install poetry==1.8.2
 
 # Copy poetry dependency files
 COPY poetry.lock pyproject.toml ./
@@ -28,7 +28,12 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 
 # Copy the application code
 # This comes after pip install to leverage caching
-COPY --chown=app:app ./app ./app
+COPY --chown=app:app ./app .
+
+# Copy Google Cloud credentials if they exist in the build context.
+# This is primarily for local development. In GCP, use Workload Identity.
+COPY --chown=app:app ./google-credentials.json /app/google-credentials.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
 
 # Switch to the non-root user
 USER app

@@ -6,9 +6,12 @@ import re
 import base64
 from pathlib import Path
 
+from app.core.config import settings
 from app.services.claude_service import claude_service, async_claude_client
 from app.models.processing import AIInterpretation
 from app.services.pdf_splitter import pdf_splitter
+
+MAX_MATERIALS = 50 # Limiting number of materials
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +114,9 @@ class ClaudePDFProcessor:
             raise ConnectionError("Claude API client not configured")
 
         if use_async:
-            response = await client.messages.create(model="claude-3-5-sonnet-20241022", max_tokens=2000, messages=[{"role": "user", "content": message_content}])
+            response = await client.messages.create(model=settings.CLAUDE_MODEL_VERSION, max_tokens=2000, messages=[{"role": "user", "content": message_content}])
         else:
-            response = client.messages.create(model="claude-3-5-sonnet-20241022", max_tokens=2000, messages=[{"role": "user", "content": message_content}])
+            response = client.messages.create(model=settings.CLAUDE_MODEL_VERSION, max_tokens=2000, messages=[{"role": "user", "content": message_content}])
 
         claude_text = response.content[0].text
         try:
@@ -130,14 +133,12 @@ class ClaudePDFProcessor:
 
     def _merge_claude_responses(self, responses: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Merges structured data from multiple Claude responses."""
-        if not responses: return {}
-        merged = {"total_area_sqft": 0, "roof_type": "", "materials": [], "special_requirements": [], "complexity": "low", "measurements": [], "key_findings": [], "estimated_cost_range": {"min": 0, "max": 0}, "confidence_score": 0}
         if not responses:
             return {}
 
         # This structure must match the AIInterpretation model
         merged = {
-            "roof_area_sqft": 0,
+            "roof_area_sqft": 0.0,
             "roof_pitch": None,
             "materials": [],
             "measurements": [],
@@ -151,31 +152,46 @@ class ClaudePDFProcessor:
         }
 
         all_confidences = []
-        material_types_seen = set()
+        all_materials = []
 
+        # Aggregate data from all chunk responses
         for resp in responses:
-            merged["total_area_sqft"] += resp.get("total_area_sqft", 0)
-            if resp.get("roof_type") and not merged["roof_type"]: merged["roof_type"] = resp["roof_type"]
-            merged["materials"].extend(resp.get("materials", []))
+            merged["roof_area_sqft"] += resp.get("roof_area_sqft", 0)
             if resp.get("roof_pitch") and not merged["roof_pitch"]:
-                merged["roof_pitch"] = resp.get("roof_pitch")
-            
-            # Correctly deduplicate list of dictionaries
-            for material in resp.get("materials", []):
-                if material.get("type") not in material_types_seen:
-                    merged["materials"].append(material)
-                    material_types_seen.add(material.get("type"))
+                merged["roof_pitch"] = resp["roof_pitch"]
 
-            merged["special_requirements"].extend(resp.get("special_requirements", []))
+            all_materials.extend(resp.get("materials", []))
             merged["measurements"].extend(resp.get("measurements", []))
-            merged["key_findings"].extend(resp.get("key_findings", []))
-            if resp.get("confidence_score"): all_confidences.append(resp["confidence_score"])
-        merged["materials"] = list(set(merged["materials"]))
+            if resp.get("damage_assessment") and not merged["damage_assessment"]:
+                merged["damage_assessment"] = resp["damage_assessment"]
+            merged["special_requirements"].extend(resp.get("special_requirements", []))
+            merged["roof_features"].extend(resp.get("roof_features", []))
+            merged["complexity_factors"].extend(resp.get("complexity_factors", []))
+
             if resp.get("confidence"):
                 all_confidences.append(resp["confidence"])
+
+        # Correctly deduplicate materials
+        material_types_seen = set()
+        unique_materials = []
+        for material in all_materials:
+            mat_type = material.get("type") if isinstance(material, dict) else None
+            if mat_type and mat_type not in material_types_seen:
+                unique_materials.append(material)
+                material_types_seen.add(mat_type)
+        merged["materials"] = unique_materials
         
-        merged["special_requirements"] = list(set(merged["special_requirements"]))
-        if all_confidences: merged["confidence_score"] = sum(all_confidences) / len(all_confidences)
+        #Truncating materials if too many
+        if len(merged["materials"]) > MAX_MATERIALS:
+           merged["materials"] = merged["materials"][:MAX_MATERIALS]
+           logger.warning(f"Too many materials. Truncating to the first {MAX_MATERIALS}")
+
+
+
+        # Deduplicate simple lists of strings
+        merged["special_requirements"] = list(dict.fromkeys(merged["special_requirements"]))
+        merged["complexity_factors"] = list(dict.fromkeys(merged["complexity_factors"]))
+
         if all_confidences:
             merged["confidence"] = sum(all_confidences) / len(all_confidences)
 

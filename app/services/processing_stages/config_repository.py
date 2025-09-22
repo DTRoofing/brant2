@@ -4,6 +4,9 @@ Configuration repository for cost estimation and processing parameters
 
 import logging
 from typing import Dict, Any
+from sqlalchemy import table, column, String, JSON, select
+
+from app.core.database import async_session
 
 logger = logging.getLogger(__name__)
 
@@ -32,64 +35,28 @@ DEFAULT_COST_CONFIG = {
     "maximum_job_cost": 500000.0
 }
 
-def get_cost_configuration() -> Dict[str, Any]:
+async def get_cost_configuration() -> Dict[str, Any]:
     """
-    Get the cost configuration for estimates
-    
-    Returns:
-        Dict containing cost parameters for material and labor calculations
+    Get the cost configuration for estimates from the database.
+    Falls back to a hardcoded default if the database is unavailable or the config is missing.
     """
     try:
-        # In a real implementation, this could load from a database or external config
-        # For now, return the default configuration
-        return DEFAULT_COST_CONFIG.copy()
+        async with async_session() as session:
+            cost_configurations_table = table(
+                'cost_configurations',
+                column('key', String),
+                column('config_data', JSON)
+            )
+            stmt = select(cost_configurations_table.c.config_data).where(cost_configurations_table.c.key == 'default')
+            result = await session.execute(stmt)
+            config_data = result.scalar_one_or_none()
+
+            if config_data:
+                logger.info("Loaded cost configuration from database.")
+                return config_data
+            else:
+                logger.warning("No 'default' cost configuration found in database. Using hardcoded default.")
+                return DEFAULT_COST_CONFIG.copy()
     except Exception as e:
-        logger.error(f"Failed to load cost configuration: {e}")
+        logger.error(f"Failed to load cost configuration from DB, falling back to default: {e}", exc_info=True)
         return DEFAULT_COST_CONFIG.copy()
-
-def update_cost_configuration(new_config: Dict[str, Any]) -> bool:
-    """
-    Update the cost configuration
-    
-    Args:
-        new_config: New configuration values to merge
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        # In a real implementation, this would save to database or external config
-        # For now, just log the update
-        logger.info(f"Cost configuration updated: {new_config}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to update cost configuration: {e}")
-        return False
-
-def get_material_cost(material_type: str) -> float:
-    """
-    Get the cost per square foot for a specific material
-    
-    Args:
-        material_type: Type of roofing material
-        
-    Returns:
-        float: Cost per square foot
-    """
-    config = get_cost_configuration()
-    material_costs = config.get("material_costs_per_sqft", {})
-    return material_costs.get(material_type, material_costs.get("unknown", 8.0))
-
-def get_labor_cost(material_type: str) -> float:
-    """
-    Get the labor cost per square foot for a specific material
-    
-    Args:
-        material_type: Type of roofing material
-        
-    Returns:
-        float: Labor cost per square foot
-    """
-    config = get_cost_configuration()
-    labor_costs = config.get("labor_costs_per_sqft", {})
-    return labor_costs.get(material_type, labor_costs.get("unknown", 4.5))

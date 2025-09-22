@@ -5,6 +5,7 @@ import os
 
 from app.models.processing import AIInterpretation, ExtractedContent, DocumentType
 from app.services.claude_service import claude_service
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class AIInterpreter:
             
             # Get AI interpretation
             response = self.claude_service.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model=settings.CLAUDE_MODEL_VERSION, # Use the setting
                 max_tokens=2048,
                 messages=[{"role": "user", "content": prompt}]
             )

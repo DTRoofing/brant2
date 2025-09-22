@@ -1,0 +1,32 @@
+# Local Environment Configuration for Brant Roofing System
+# This file is NOT committed to version control.
+
+# --- Database Configuration ---
+# Connection string for the local PostgreSQL database.
+# The user, password, and db name must match the 'postgres' service in docker-compose.yml.
+DATABASE_URL=postgresql+asyncpg://brant_user:brant_password@postgres:5432/brant_roofing
+
+# --- Celery/Redis Configuration ---
+# Connection strings for the local Redis instance used by Celery.
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+# --- API Keys ---
+# Your API key for the Anthropic Claude service.
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# --- Google Cloud Configuration ---
+# Your Google Cloud Project ID.
+GCP_PROJECT=brant-roofing-system-2025
+# The name of the GCS bucket used for file uploads.
+GOOGLE_CLOUD_STORAGE_BUCKET=brant-roofing-uploads
+# The ID of the Document AI processor.
+GOOGLE_DOCUMENTAI_PROCESSOR_ID=xxxxxxxxxxxxxxxxx
+
+# --- Application Settings ---
+# Maximum file upload size in bytes (e.g., 20000000 for 20MB).
+MAX_FILE_SIZE=20000000
+# Comma-separated list of allowed origins for CORS.
+# For local development, this should be your frontend's URL.
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+

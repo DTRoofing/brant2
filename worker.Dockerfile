@@ -5,7 +5,7 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 # Install poetry
-RUN pip install poetry
+RUN pip install poetry==1.8.2
 
 # Copy poetry dependency files
 COPY poetry.lock pyproject.toml ./
@@ -43,16 +43,18 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Create a non-root user for security
-RUN addgroup --system appuser && adduser --system --group appuser
+RUN addgroup --system app && adduser --system --group app
 
 # Copy the rest of the application's code to the working directory
-COPY --chown=appuser:appuser ./app/ ./app
+COPY --chown=app:app ./app/ .
+
+# Copy Google Cloud credentials if they exist in the build context.
+# This is primarily for local development. In GCP, use Workload Identity.
+COPY --chown=app:app ./google-credentials.json /app/google-credentials.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
 
 # Switch to non-root user
-USER appuser
-
-# Set PYTHONPATH to include the current directory
-ENV PYTHONPATH=/app:$PYTHONPATH
+USER app
 
 # Define the command to run the Celery worker.
 # Concurrency is configurable via the CELERY_CONCURRENCY env var, with a default of 4.

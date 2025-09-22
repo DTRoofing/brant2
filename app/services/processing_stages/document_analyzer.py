@@ -196,7 +196,7 @@ class DocumentAnalyzer:
             """
             
             response = self.claude_service.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model=settings.CLAUDE_MODEL_VERSION,
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )

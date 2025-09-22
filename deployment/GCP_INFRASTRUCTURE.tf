@@ -119,7 +119,7 @@ resource "google_vpc_access_connector" "connector" {
 
 # 2. Service Account for the Cloud Run applications
 resource "google_service_account" "app_sa" {
-  account_id   = "brant-app-sa"
+  account_id   = "brant-system-service"
   display_name = "Brant Application Service Account"
 }
 
@@ -128,9 +128,10 @@ resource "google_project_iam_member" "sa_roles" {
   for_each = toset([
     "roles/secretmanager.secretAccessor",
     "roles/cloudsql.client",
-    "roles/documentai.user",
-    "roles/storage.objectCreator", # Least privilege for creating objects
-    "roles/storage.objectViewer"  # To read objects for processing
+    "roles/documentai.apiUser", # Correct role for using the API
+    "roles/storage.objectCreator",
+    "roles/storage.objectViewer",
+    "roles/vision.user" # For processing photos
   ])
 
   project = var.project_id

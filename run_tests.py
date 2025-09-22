@@ -104,11 +104,17 @@ def run_quick_test():
         print("✅ API health check passed")
         
         # Test upload URL generation
-        response = requests.post("http://localhost:3001/api/v1/documents/generate-url",
-                               json={"filename": "test.pdf", "content_type": "application/pdf"},
+        # This test is updated to reflect the new /generate-signed-url endpoint
+        # which requires file_name, content_type, and size, and returns 201.
+        response = requests.post("http://localhost:3001/api/v1/documents/generate-signed-url",
+                               json={"file_name": "test.pdf", "content_type": "application/pdf", "size": 1024},
                                timeout=5)
-        if response.status_code != 200:
-            print("❌ Upload URL generation failed")
+        if response.status_code != 201:
+            print(f"❌ Upload URL generation failed with status code {response.status_code}")
+            try:
+                print(f"   Response: {response.json()}")
+            except Exception:
+                print(f"   Response: {response.text}")
             return False
         print("✅ Upload URL generation passed")
         

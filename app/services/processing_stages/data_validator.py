@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 class DataValidator:
     """Stage 4: Validate and enhance extracted data"""
     
-    def validate_data(self, interpretation: AIInterpretation, content: ExtractedContent) -> ValidatedData:
+    async def validate_data(self, interpretation: AIInterpretation, content: ExtractedContent) -> ValidatedData:
         """Validate and enhance the AI interpretation data"""
         try:
             # Get cost configuration
-            cost_config = get_cost_configuration()
+            cost_config = await get_cost_configuration()
             
             # Validate measurements
             validated_measurements = self._validate_measurements(interpretation.measurements)

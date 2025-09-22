@@ -8,9 +8,9 @@ x-api-base: &api-base
     context: .
     dockerfile: backend.Dockerfile
   ports:
-    - "3001:3001"
+    - "3001:3001" # Expose API port
   volumes:
-    - ./app:/app/app
+    - ./app:/app # Mount application code for hot-reloading
   depends_on:
     redis:
       condition: service_healthy
@@ -38,7 +38,7 @@ x-worker-base: &worker-base
     context: .
     dockerfile: worker.Dockerfile
   volumes:
-    - ./app:/app/app
+    - ./app:/app # Mount application code for hot-reloading
   depends_on:
     redis:
       condition: service_healthy
@@ -86,9 +86,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./app:/app/app
+      - ./app:/app
       # Mount credentials for local development against GCP
-      - ./secrets/brant-roofing-system-2025-a5b8920b36d5.json:/app/google-credentials.json:ro
+      - ./google-credentials.json:/app/google-credentials.json:ro
       - ./.env:/app/.env:ro
 
   frontend-local:
@@ -96,13 +96,13 @@ services:
     container_name: brant-frontend-local
     profiles: ["local"]
     build:
-      context: ./frontend_ux
-      dockerfile: Dockerfile
       target: development # Use the development stage from the Dockerfile
     env_file:
       - .env
     environment:
       - NODE_ENV=development
+      # Provides the backend URL to the frontend container, fixing the hardcoded 'localhost'.
+      - BACKEND_URL=http://api:3001
     volumes:
       - ./frontend_ux:/app
       - /app/node_modules
@@ -118,10 +118,15 @@ services:
       - .env
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ./app:/app/app
+      - ./app:/app
       # Mount credentials for local development against GCP
-      - ./secrets/brant-roofing-system-2025-a5b8920b36d5.json:/app/google-credentials.json:ro
+      - ./google-credentials.json:/app/google-credentials.json:ro
       - ./.env:/app/.env:ro
 
   # ===================================================================
@@ -135,15 +140,19 @@ services:
     # This profile is for LOCAL DEVELOPMENT against live GCP services.
     # It uses your local gcloud ADC to authenticate.
     environment:
-      # This tells the app to fetch secrets from Google Secret Manager.
-      # The GCP_PROJECT variable must be set on your host machine.
+      # This tells the app to fetch secrets from Google Secret Manager and where to find credentials.
       - GCP_PROJECT
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp_credentials.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      # Mounts application code for development against GCP services
-      - ./app:/app/app
-      # Mounts your local gcloud credentials to authenticate with Secret Manager.
-      # You must run 'gcloud auth application-default login' on your host first.
-      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+      - ./app:/app
+      # Mounts local gcloud credentials to a path accessible by the 'app' user.
+      # You must run 'gcloud auth application-default login' on your host.
+      - ~/.config/gcloud/application_default_credentials.json:/app/gcp_credentials.json:ro
 
   frontend-gcp:
     <<: *frontend-base
@@ -167,13 +176,19 @@ services:
     # This profile is for LOCAL DEVELOPMENT against live GCP services.
     # It uses your local gcloud ADC to authenticate.
     environment:
+      # This tells the app to fetch secrets from Google Secret Manager and where to find credentials.
       - GCP_PROJECT
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp_credentials.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      # Mounts application code for development against GCP services
-      - ./app:/app/app
-      # Mounts your local gcloud credentials to authenticate with Secret Manager.
-      # You must run 'gcloud auth application-default login' on your host first.
-      - ~/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+      - ./app:/app
+      # Mounts local gcloud credentials to a path accessible by the 'app' user.
+      # You must run 'gcloud auth application-default login' on your host.
+      - ~/.config/gcloud/application_default_credentials.json:/app/gcp_credentials.json:ro
 
   postgres:
     image: postgres:15-alpine
@@ -210,13 +225,14 @@ services:
     image: mher/flower
     ports:
       - "5555:5555"
-    env_file:
-      - .env
+    environment:
+      # Use the internal service name for redis to avoid dependency on a potentially missing .env file.
+      - CELERY_BROKER_URL=redis://redis:6379/0
     command:
       - "celery"
       - "flower"
-      - "--broker=${CELERY_BROKER_URL}"
-      - "--result_backend=${CELERY_RESULT_BACKEND}"
+      - "--broker=redis://redis:6379/0"
+      - "--result_backend=redis://redis:6379/0"
     depends_on:
       - redis
     restart: unless-stopped

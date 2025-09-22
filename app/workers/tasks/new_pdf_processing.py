@@ -149,7 +149,7 @@ def _save_pipeline_results(document_id: str, result: Any):
             if result.final_estimate.processing_metadata:
                 processing_results.project_metadata = result.final_estimate.processing_metadata
             if result.final_estimate.labor_estimate:
-                processing_results.labor_estimate = result.final_estimate.labor_estimate.dict()
+                processing_results.labor_estimate = result.final_estimate.labor_estimate
 
         if result.validated_data: # Check if validated_data exists
             cost_estimates = result.validated_data.cost_estimates or {}
@@ -168,7 +168,11 @@ def _save_pipeline_results(document_id: str, result: Any):
                 processing_results.ai_interpretation = json.dumps(result.ai_interpretation.metadata)
             else:  # Fallback for older data or simpler interpretations
                 interpretation_data = {
+                  #Adding more to the default data
                     "roof_pitch": result.ai_interpretation.roof_pitch,
+                    "total_area_sqft": result.ai_interpretation.roof_area_sqft,
+                    "roof_type": "",
+                    "damage_assessment": None,
                     "confidence": result.ai_interpretation.confidence,
                     "materials": result.ai_interpretation.materials,
                     "special_requirements": result.ai_interpretation.special_requirements,

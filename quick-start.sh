@@ -16,23 +16,33 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+# Find the service account key
+KEY_FILE=$(find secrets -name '*.json' -print -quit)
+
 # Check if service account key exists
-if [ ! -f "secrets/brant-roofing-system-2025-a5b8920b36d5.json" ]; then
-    echo "❌ Google service account key not found."
-    echo "   Please place your service account key at:"
-    echo "   secrets/brant-roofing-system-2025-a5b8920b36d5.json"
+if [ -z "$KEY_FILE" ]; then
+    echo "❌ Google service account key (.json file) not found in the 'secrets' directory."
+    echo "   Please place your service account key there."
     exit 1
 fi
+echo "🔑 Found service account key: $KEY_FILE"
 
-# Create google-credentials.json symlink for Docker compatibility
-if [ ! -f "google-credentials.json" ]; then
-    echo "🔗 Creating google-credentials.json symlink..."
-    ln -s "secrets/brant-roofing-system-2025-a5b8920b36d5.json" "google-credentials.json"
+# Copy service account key to google-credentials.json for Docker compatibility.
+# Using 'cp' instead of 'ln -s' for better Windows compatibility.
+echo "📋 Copying service account key to ./google-credentials.json for Docker build..."
+cp "$KEY_FILE" "./google-credentials.json"
+
+# Ensure the copied credentials file is not committed to git
+if [ -f ".gitignore" ] && ! grep -q "^google-credentials.json$" .gitignore; then
+    echo "" >> .gitignore
+    echo "# Copied from secrets/ for Docker build compatibility" >> .gitignore
+    echo "google-credentials.json" >> .gitignore
+    echo "🔒 Ensured google-credentials.json is in .gitignore"
 fi
 
 # Build and start services
 echo "🏗️ Building and starting services..."
-docker-compose up --build -d
+docker-compose --profile local up --build -d
 
 echo "✅ Setup complete!"
 echo ""
