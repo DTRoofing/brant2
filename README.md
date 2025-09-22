@@ -20,9 +20,9 @@ AI-powered roofing estimation system using Google Document AI and Anthropic Clau
    ```
 
 3. **Access**:
-   - API: <http://localhost:3001>
-   - API Docs: <http://localhost:3001/docs>
-   - Health Check: <http://localhost:3001/api/v1/health>
+   - API: http://localhost:3001
+   - API Docs: http://localhost:3001/docs
+   - Health Check: http://localhost:3001/api/v1/health
 
 ## 📁 Project Structure
 

@@ -104,10 +104,10 @@ make logs
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| **API** | <http://localhost:3001> | Main application API |
-| **API Docs** | <http://localhost:3001/docs> | Interactive API documentation |
-| **Health Check** | <http://localhost:3001/health> | Service health status |
-| **Celery Flower** | <http://localhost:5555> | Task monitoring dashboard |
+| **API** | http://localhost:3001 | Main application API |
+| **API Docs** | http://localhost:3001/docs | Interactive API documentation |
+| **Health Check** | http://localhost:3001/health | Service health status |
+| **Celery Flower** | http://localhost:5555 | Task monitoring dashboard |
 | **Database** | localhost:5432 | PostgreSQL database |
 | **Redis** | localhost:6379 | Cache and message broker |
 
