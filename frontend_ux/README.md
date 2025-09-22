@@ -1,4 +1,4 @@
-# DT Commercial Roofing - AI-Powered Estimation Platform
+# Brant Roofing System - AI-Powered Estimation Platform
 
 A modern, cutting-edge web application for commercial roofing estimators that
 automates roofing installation and repair estimates using Google Document AI and
@@ -31,7 +31,7 @@ Claude AI.
 
 ```bash
 git clone <repository-url>
-cd roofing-dashboard
+cd brant
 cp .env.example .env.development
 ```
 
@@ -67,9 +67,9 @@ chmod +x scripts/dev-setup.sh
 
 ### 4. Access the Application
 
-- **Application**: <http://localhost:3000>
-- **Database Admin**: <http://localhost:8080> (Adminer)
-- **Email Testing**: <http://localhost:8025> (Mailhog)
+- **Application**: http://localhost:3000
+- **Database Admin**: http://localhost:8080 (Adminer)
+- **Email Testing**: http://localhost:8025 (Mailhog)
 
 ## 🛠️ Development
 
@@ -183,7 +183,7 @@ npm run test:coverage    # Generate coverage report
 
 ## 📄 License
 
-This project is proprietary software owned by DT Commercial Roofing.
+This project is proprietary software owned by Brant Roofing System.
 
 ## 🆘 Support
 

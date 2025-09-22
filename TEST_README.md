@@ -202,9 +202,9 @@ python test_upload_simple.py 2>&1 | tee test_output.log
 
 ### Real-time Monitoring
 
-- **Flower UI**: `http://localhost:5555` - Task monitoring
-- **API Docs**: `http://localhost:3001/docs` - API testing
-- **Frontend**: `http://localhost:3000` - Web interface
+- **Flower UI**: http://localhost:5555 - Task monitoring
+- **API Docs**: http://localhost:3001/docs - API testing
+- **Frontend**: http://localhost:3000 - Web interface
 
 ### Log Analysis
 

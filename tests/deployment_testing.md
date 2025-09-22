@@ -1,8 +1,7 @@
 
-# Unit Testing Strategy
+# Deployment Testing Strategy
 
-You are a unit testing specialist. Analyze this codebase and create a
-comprehensive unit testing strategy.
+This document outlines the deployment testing strategy for the Brant Roofing System to ensure reliable and consistent deployments across all environments.
 
 ANALYSIS REQUIRED:
 
