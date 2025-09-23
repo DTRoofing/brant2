@@ -88,14 +88,10 @@ steps:
       - 'run'
       - 'deploy'
       - '${_SERVICE_NAME_API}'
-      - '--image'
-      - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
-      - '--region'
-      - '${_REGION}'
-      - '--platform'
-      - 'managed'
+      - '--image=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
+      - '--region=${_REGION}'
       - '--service-account'
-      - '${_SERVICE_ACCOUNT}'
+      - 'brant-system-service@${PROJECT_ID}.iam.gserviceaccount.com'
       # Connect to VPC for Cloud SQL and Memorystore access
       - '--vpc-connector'
       - '${_VPC_CONNECTOR}'
@@ -192,13 +188,8 @@ substitutions:
   _SERVICE_NAME_API: 'brant-api'
   _SERVICE_NAME_WORKER: 'brant-worker'
   _SERVICE_NAME_FRONTEND: 'brant-frontend'
-  # IMPORTANT: Create a dedicated service account for the app with roles:
-  # - Secret Manager Secret Accessor
-  # - Cloud SQL Client
-  # - Document AI User
-  # - Storage Object Creator (for uploads)
-  # - Storage Object Viewer (for processing)
-  _SERVICE_ACCOUNT: 'brant-app-sa@${PROJECT_ID}.iam.gserviceaccount.com'
+  # This service account is created by the GCP_INFRASTRUCTURE.tf plan.
+  _SERVICE_ACCOUNT: 'brant-system-service@${PROJECT_ID}.iam.gserviceaccount.com'
   # IMPORTANT: Create a Serverless VPC Access connector to allow Cloud Run
   # to communicate with Cloud SQL and Memorystore.
   _VPC_CONNECTOR: 'brant-vpc-connector'

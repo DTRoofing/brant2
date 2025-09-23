@@ -108,8 +108,6 @@ class ContentExtractor:
 
     async def _extract_photo_content(self, doc_uri: str) -> ExtractedContent:
         """Extract content from photos using Vision AI."""
-        logger.info(f"Extracting photo content from {doc_uri}")
-
         vision_result = await self.google_service.process_image_with_vision_ai(doc_uri)
         if vision_result:
             return ExtractedContent(

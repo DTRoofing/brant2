@@ -7,9 +7,27 @@ terraform {
       source  = "hashicorp/google"
       version = ">= 4.50.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.1.0"
+    }
   }
 }
 
+# ------------------------------------------------------------------------------
+# LOCALS
+# ------------------------------------------------------------------------------
+
+# Generate a random password for the database user
+resource "random_password" "db_password" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+locals {
+  db_password = random_password.db_password.result
+}
 # ------------------------------------------------------------------------------
 # VARIABLES
 # ------------------------------------------------------------------------------
@@ -61,6 +79,7 @@ resource "google_project_service" "apis" {
     "vpcaccess.googleapis.com",
     "redis.googleapis.com",
     "compute.googleapis.com",      # For VPC
+    "vision.googleapis.com",           # For Vision API
     "certificatemanager.googleapis.com", # For SSL Certs
     "servicenetworking.googleapis.com" # For private service connection
   ])
@@ -128,15 +147,17 @@ resource "google_project_iam_member" "sa_roles" {
   for_each = toset([
     "roles/secretmanager.secretAccessor",
     "roles/cloudsql.client",
-    "roles/documentai.apiUser", # Correct role for using the API
+    "roles/documentai.apiUser",
     "roles/storage.objectCreator",
     "roles/storage.objectViewer",
-    "roles/vision.user" # For processing photos
   ])
 
   project = var.project_id
   role    = each.key
   member  = "serviceAccount:${google_service_account.app_sa.email}"
+
+  # Explicitly depend on the APIs being enabled to avoid race conditions.
+  depends_on = [google_project_service.apis]
 }
 
 # ------------------------------------------------------------------------------
@@ -292,7 +313,9 @@ resource "google_secret_manager_secret" "secrets" {
     "brant-document-ai-processor-id", "brant-document-ai-location"
   ])
   secret_id = each.key
-  replication { automatic = true }
+  replication {
+    auto {}
+  }
 }
 
 # Create initial versions for the secrets.
@@ -321,12 +344,18 @@ resource "google_cloud_run_v2_job" "db_migrator" {
   name     = "brant-db-migrations"
   location = var.region
 
+  # Temporarily disable deletion protection to allow Terraform to destroy and
+  # recreate the resource, which was left in a "tainted" state by a
+  # previous failed apply. This can be set back to 'true' after a successful apply.
+  deletion_protection = false
   template {
     template {
       service_account = google_service_account.app_sa.email
       containers {
-        # The image will be updated by the Cloud Build pipeline on each run.
-        image   = "us-central1-docker.pkg.dev/${var.project_id}/brant-repo/brant-api:latest"
+        # Use a public placeholder image for initial creation.
+        # The Cloud Build pipeline is responsible for updating this job
+        # with the correct application image before execution.
+        image   = "alpine:latest"
         command = ["alembic", "upgrade", "head"]
         env {
           name  = "GCP_PROJECT"
