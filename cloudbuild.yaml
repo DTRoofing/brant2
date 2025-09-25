@@ -135,7 +135,7 @@ steps:
       - '--image=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:$COMMIT_SHA'
       - '--region=${_REGION}'
       - '--service-account=${_SERVICE_ACCOUNT}'
-      - '--vpc-connector=brant-vpc-connector'
+      - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--no-ingress' # Worker does not need an ingress endpoint
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'

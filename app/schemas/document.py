@@ -12,9 +12,13 @@ class DocumentCreate(BaseModel):
 
 class DocumentRead(BaseModel):
     id: UUID
+    project_id: Optional[UUID] = None
+    user_id: UUID
     filename: str
     file_path: str
+    gcs_object_name: Optional[str] = None
     file_size: Optional[float] = None
+    document_type: Optional[str] = None
     processing_status: ProcessingStatus
     processing_error: Optional[str] = None
     created_at: datetime

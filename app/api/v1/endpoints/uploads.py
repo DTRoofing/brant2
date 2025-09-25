@@ -8,6 +8,7 @@ from app.services.google_services import google_service
 from app.api.deps import get_current_active_user
 from app.core.database import get_db
 from app.models.core import User, Document, ProcessingStatus
+from app.schemas.document import DocumentRead
 from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
 
 
@@ -65,7 +66,7 @@ async def generate_signed_url(
 
 @router.post(
     "/start-processing",
-    response_model=Document,
+    response_model=DocumentRead,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Confirm upload and start processing pipeline",
 )
@@ -97,7 +98,7 @@ async def start_processing(
         task = process_pdf_with_pipeline.delay(str(new_document.id), processing_options=processing_options)
         logger.info(f"Enqueued processing for document {new_document.id} (Task ID: {task.id}) from GCS object {request.gcs_object_name}")
 
-        return new_document
+        return DocumentRead.model_validate(new_document)
 
     except Exception as e:
         logger.error(f"Failed to start processing for GCS object {request.gcs_object_name}: {e}", exc_info=True)
