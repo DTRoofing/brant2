@@ -25,10 +25,24 @@ async def async_process_pdf_document(document_id: str) -> Dict[str, Any]:
     Async wrapper for PDF document processing.
     For testing compatibility with existing test functions.
     """
-    # This is a simplified wrapper - in reality, you'd need to implement
-    # the full document processing pipeline here
-    return {
-        "status": "success",
-        "extracted_text_length": 0,
-        "detail": "Processing completed"
-    }
+    try:
+        # Import here to avoid circular imports
+        from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+        
+        # For testing, we'll call the task synchronously
+        # In production, this would be handled by Celery workers
+        result = process_pdf_with_pipeline(str(document_id))
+        
+        return {
+            "status": "success",
+            "extracted_text_length": 0,
+            "detail": "Processing completed",
+            "task_id": result.id if hasattr(result, 'id') else None
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "extracted_text_length": 0,
+            "detail": f"Processing failed: {str(e)}",
+            "error": str(e)
+        }

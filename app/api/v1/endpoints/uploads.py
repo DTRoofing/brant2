@@ -1,6 +1,9 @@
 import logging
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import tempfile
+from pathlib import Path
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel, Field, constr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +34,13 @@ class StartProcessingRequest(BaseModel):
     gcs_object_name: str
     original_filename: str
     document_type: constr(to_lower=True)
+
+
+class UploadResponse(BaseModel):
+    id: str
+    filename: str
+    status: str
+    message: str
 
 
 @router.post(
@@ -105,4 +115,149 @@ async def start_processing(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not start document processing. Please try again later.",
+        )
+
+
+@router.post(
+    "/upload",
+    response_model=UploadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Upload PDF document directly",
+)
+async def upload_document(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Upload a PDF document directly and start processing.
+    This endpoint is for testing and simple uploads.
+    """
+    try:
+        # Validate file type
+        if not file.content_type == "application/pdf":
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail="Only PDF files are allowed"
+            )
+        
+        # Validate file size (100MB limit)
+        file_size = 0
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > 100 * 1024 * 1024:  # 100MB
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="File size exceeds 100MB limit"
+            )
+        
+        if file_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Empty file not allowed"
+            )
+        
+        # Create upload directory if it doesn't exist
+        upload_dir = Path("uploads")
+        upload_dir.mkdir(exist_ok=True)
+        
+        # Generate unique filename
+        file_id = str(uuid.uuid4())
+        filename = f"{file_id}_{file.filename}"
+        file_path = upload_dir / filename
+        
+        # Save file to disk
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # Create document record
+        new_document = Document(
+            id=uuid.uuid4(),
+            filename=file.filename,
+            gcs_object_name=f"uploads/{filename}",
+            user_id=current_user.id,
+            processing_status=ProcessingStatus.PENDING,
+            document_type="blueprint",
+        )
+        db.add(new_document)
+        await db.commit()
+        await db.refresh(new_document)
+        
+        # Start processing
+        processing_options = {"mode": "standard"}
+        task = process_pdf_with_pipeline.delay(str(new_document.id), processing_options=processing_options)
+        logger.info(f"Enqueued processing for document {new_document.id} (Task ID: {task.id})")
+        
+        return UploadResponse(
+            id=str(new_document.id),
+            filename=file.filename,
+            status="pending",
+            message="Document uploaded successfully and queued for processing"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to upload document: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload document. Please try again later."
+        )
+
+
+@router.get(
+    "/{document_id}",
+    response_model=DocumentRead,
+    summary="Get document details",
+)
+async def get_document(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Get document details by ID.
+    """
+    try:
+        # Convert string to UUID
+        doc_uuid = uuid.UUID(document_id)
+        
+        # Query document from database
+        result = await db.execute(
+            "SELECT * FROM documents WHERE id = :id AND user_id = :user_id",
+            {"id": doc_uuid, "user_id": current_user.id}
+        )
+        document = result.fetchone()
+        
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+        
+        # Convert to DocumentRead model
+        return DocumentRead(
+            id=str(document.id),
+            filename=document.filename,
+            gcs_object_name=document.gcs_object_name,
+            user_id=document.user_id,
+            processing_status=document.processing_status,
+            document_type=document.document_type,
+            created_at=document.created_at,
+            updated_at=document.updated_at
+        )
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid document ID format"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get document {document_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve document"
         )
