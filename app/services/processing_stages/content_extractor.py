@@ -72,14 +72,55 @@ class ContentExtractor:
         return text_content, "text"
 
     def _direct_text_extraction(self, file_path: str) -> str:
-        """Placeholder for a direct text extraction method (e.g., using PyMuPDF)."""
-        # In a real implementation, you would use a library like fitz (PyMuPDF) here.
-        # import fitz
-        # doc = fitz.open(file_path)
-        # text = "".join(page.get_text() for page in doc)
-        # return text
-        logger.info("Performing placeholder direct text extraction.")
-        return "" # Assume it returns empty for image-based PDFs
+        """Extract text directly from PDF using PyMuPDF (fitz)."""
+        try:
+            import fitz  # PyMuPDF
+            logger.info("Performing direct text extraction with PyMuPDF.")
+            
+            doc = fitz.open(file_path)
+            text_parts = []
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                page_text = page.get_text()
+                if page_text.strip():
+                    text_parts.append(f"--- Page {page_num + 1} ---\n{page_text}")
+            
+            doc.close()
+            
+            full_text = "\n\n".join(text_parts)
+            logger.info(f"PyMuPDF extracted {len(full_text)} characters from {len(doc)} pages")
+            return full_text
+            
+        except ImportError:
+            logger.warning("PyMuPDF not available, falling back to PyPDF2")
+            return self._fallback_text_extraction(file_path)
+        except Exception as e:
+            logger.error(f"PyMuPDF text extraction failed: {e}")
+            return self._fallback_text_extraction(file_path)
+    
+    def _fallback_text_extraction(self, file_path: str) -> str:
+        """Fallback text extraction using PyPDF2."""
+        try:
+            import pypdf
+            logger.info("Performing fallback text extraction with PyPDF2.")
+            
+            with open(file_path, 'rb') as file:
+                pdf_reader = pypdf.PdfReader(file)
+                text_parts = []
+                
+                for page_num, page in enumerate(pdf_reader.pages):
+                    page_text = page.extract_text()
+                    if page_text.strip():
+                        text_parts.append(f"--- Page {page_num + 1} ---\n{page_text}")
+                
+                full_text = "\n\n".join(text_parts)
+                logger.info(f"PyPDF2 extracted {len(full_text)} characters from {len(pdf_reader.pages)} pages")
+                return full_text
+                
+        except Exception as e:
+            logger.error(f"PyPDF2 text extraction failed: {e}")
+            return ""
 
     async def _extract_text_with_vision_ocr(self, file_path: str) -> str:
         """

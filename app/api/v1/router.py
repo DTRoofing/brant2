@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import claude_processing, pipeline, uploads, health
+from app.api.v1.endpoints import claude_processing, pipeline, uploads, health, auth
 
 api_router = APIRouter()
 
@@ -9,6 +9,7 @@ api_router = APIRouter()
 # This changes the prefix to "/documents" to correctly form the path "/api/v1/documents/upload",
 # which is the primary blocker for all 32 failed integration and E2E tests.
 api_router.include_router(health.router, prefix="", tags=["Health"])
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(uploads.router, prefix="/documents", tags=["Documents"])
 api_router.include_router(pipeline.router, prefix="/pipeline", tags=["Pipeline"])
 api_router.include_router(claude_processing.router, prefix="/pipeline", tags=["Claude Processing"])

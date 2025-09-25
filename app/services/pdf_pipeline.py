@@ -124,14 +124,93 @@ class PDFProcessingPipeline:
         return result
     
     async def _run_stage(self, stage_name: str, stage_func, result: ProcessingResult):
-        """Run a processing stage with error handling"""
+        """Run a processing stage with comprehensive error handling"""
         try:
             logger.info(f"Running {stage_name} stage")
-            return await stage_func()
+            start_time = datetime.now()
+            
+            # Execute the stage function
+            stage_result = await stage_func()
+            
+            # Log success with timing
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.info(f"{stage_name} stage completed successfully in {duration:.2f}s")
+            
+            return stage_result
+            
         except Exception as e:
-            logger.error(f"{stage_name} stage failed: {e}")
-            result.errors.append(f"{stage_name}: {str(e)}")
-            raise
+            duration = (datetime.now() - start_time).total_seconds()
+            error_msg = f"{stage_name} stage failed after {duration:.2f}s: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            
+            # Add detailed error information
+            result.errors.append({
+                "stage": stage_name,
+                "error": str(e),
+                "duration_seconds": duration,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            # Determine if this is a recoverable error
+            if self._is_recoverable_error(e):
+                logger.warning(f"{stage_name} stage failed with recoverable error, continuing with fallback")
+                return self._get_fallback_result(stage_name)
+            else:
+                logger.error(f"{stage_name} stage failed with non-recoverable error, stopping pipeline")
+                raise
+    
+    def _is_recoverable_error(self, error: Exception) -> bool:
+        """Determine if an error is recoverable and we can continue processing"""
+        recoverable_errors = [
+            "ConnectionError",
+            "TimeoutError", 
+            "GoogleAPICallError",
+            "RateLimitError",
+            "TemporaryFailure"
+        ]
+        
+        error_type = type(error).__name__
+        return any(recoverable in error_type for recoverable in recoverable_errors)
+    
+    def _get_fallback_result(self, stage_name: str):
+        """Get a fallback result for a failed stage"""
+        if stage_name == "Document Analysis":
+            from app.models.processing import DocumentAnalysis, DocumentType
+            return DocumentAnalysis(
+                document_type=DocumentType.UNKNOWN,
+                page_count=0,
+                has_text=True,
+                confidence_score=0.0,
+                metadata={"fallback": True, "reason": "Stage failed"}
+            )
+        elif stage_name == "Content Extraction":
+            from app.models.processing import ExtractedContent
+            return ExtractedContent(
+                text_content="",
+                images=[],
+                tables=[],
+                metadata={"fallback": True, "reason": "Stage failed"}
+            )
+        elif stage_name == "AI Interpretation":
+            from app.models.processing import AIInterpretation
+            return AIInterpretation(
+                roof_area_sqft=0,
+                roof_pitch=0,
+                materials=[],
+                measurements=[],
+                confidence_score=0.0,
+                metadata={"fallback": True, "reason": "Stage failed"}
+            )
+        elif stage_name == "Data Validation":
+            from app.models.processing import ValidatedData
+            return ValidatedData(
+                validated_measurements=[],
+                quality_score=0.0,
+                validation_errors=[],
+                metadata={"fallback": True, "reason": "Stage failed"}
+            )
+        else:
+            return None
     
     async def _generate_final_estimate(self, interpretation: AIInterpretation, validated_data: ValidatedData) -> RoofingEstimate:
         """Generate the final roofing estimate"""

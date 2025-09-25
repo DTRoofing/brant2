@@ -16,6 +16,7 @@ export default function EstimatePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isNewEstimate, setIsNewEstimate] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dataSource, setDataSource] = useState<string | null>(null)
   const [estimateData, setEstimateData] = useState<any>(null)
@@ -34,12 +35,14 @@ export default function EstimatePage() {
       // Otherwise, treat it as a new estimate. This handles cases where no ID is present,
       // or the ID is explicitly 'new'.
       setIsNewEstimate(true)
+      setIsLoading(false)
       setEstimateData(getDefaultEstimateData())
     }
   }, [])
 
   const loadPipelineResults = async (documentId: string, source: string | null) => {
     setError(null)
+    setIsLoading(true)
     try {
       // Always fetch fresh results from the API to ensure data is not stale
       const { apiClient } = await import('@/lib/api')
@@ -55,6 +58,8 @@ export default function EstimatePage() {
       setError(errorMessage)
       // Do not fall back to default data, show an error state instead.
       setEstimateData(null)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -243,14 +248,14 @@ export default function EstimatePage() {
 
   const getDefaultEstimateData = () => ({
     projectInfo: {
-      name: "New Roofing Estimate",
-      client: "Enter Client Name",
-      address: "Enter Project Address",
+      name: "Loading...",
+      client: "Loading...",
+      address: "Loading...",
       sqft: null,
       sqftSource: null,
-      roofType: "To be determined",
+      roofType: "Loading...",
       date: new Date().toISOString().split("T")[0],
-      estimateId: `EST-${Date.now()}`,
+      estimateId: "Loading...",
     },
     summary: {
       totalCost: 0,
@@ -258,15 +263,15 @@ export default function EstimatePage() {
       materialCost: 0,
       permitCost: 0,
       contingency: 0,
-      timeline: "To be determined",
+      timeline: "Loading...",
       confidence: 0,
     },
     sections: [],
     claudeAnalysis: {
       summary: {
-        projectType: "Pending Analysis",
+        projectType: "Loading...",
         totalSquareFootage: 0,
-        roofType: "To be determined",
+        roofType: "Loading...",
         estimatedTotal: 0,
         confidence: 0,
         analysisDate: new Date().toISOString(),
@@ -319,12 +324,39 @@ export default function EstimatePage() {
     window.location.href = "/dashboard"
   }
 
-  if (!estimateData) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading estimate...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Estimate</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!estimateData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-gray-500 text-6xl mb-4">📄</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Estimate Data</h2>
+          <p className="text-gray-600">No estimate data available to display.</p>
         </div>
       </div>
     )

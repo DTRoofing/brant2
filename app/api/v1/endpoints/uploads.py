@@ -110,6 +110,12 @@ async def start_processing(
 
         return DocumentRead.model_validate(new_document)
 
+    except ValueError as e:
+        logger.error(f"Invalid request data for GCS object {request.gcs_object_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid request data: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Failed to start processing for GCS object {request.gcs_object_name}: {e}", exc_info=True)
         raise HTTPException(
@@ -195,9 +201,27 @@ async def upload_document(
             status="pending",
             message="Document uploaded successfully and queued for processing"
         )
-        
+
     except HTTPException:
         raise
+    except FileNotFoundError as e:
+        logger.error(f"File system error during upload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="File system error. Please try again later."
+        )
+    except PermissionError as e:
+        logger.error(f"Permission error during upload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Permission error. Please contact support."
+        )
+    except ValueError as e:
+        logger.error(f"Invalid data during upload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid data: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Failed to upload document: {e}", exc_info=True)
         raise HTTPException(

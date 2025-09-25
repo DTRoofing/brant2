@@ -5,10 +5,10 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.db.session import get_db
 from app.models.core import User
+from app.core.auth import auth_service
 
 # Security scheme for JWT tokens
 security = HTTPBearer(auto_error=False)
@@ -25,34 +25,24 @@ async def get_current_user(
     if not credentials:
         return None
     
-    # For now, we'll create a simple mock user for testing
-    # In a real implementation, you would:
-    # 1. Decode and validate the JWT token
-    # 2. Extract user information from the token
-    # 3. Query the database for the user
-    
-    # Mock implementation - create a default user for testing
-    # This should be replaced with proper JWT validation
     try:
-        # Try to get the first user from the database
-        result = await db.execute(select(User).limit(1))
-        user = result.scalar_one_or_none()
+        # Verify and decode the JWT token
+        payload = auth_service.verify_token(credentials.credentials)
         
-        if not user:
-            # Create a default user for testing if none exists
-            user = User(
-                email="test@example.com",
-                username="testuser",
-                hashed_password="hashed_password_placeholder",
-                is_active=True
-            )
-            db.add(user)
-            await db.commit()
-            await db.refresh(user)
+        # Extract user ID from token
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
         
+        # Get user from database
+        user = await auth_service.get_user_by_id(db, user_id)
         return user
-    except Exception as e:
-        # If there's any error, return None (unauthenticated)
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (like expired token)
+        raise
+    except Exception:
+        # For any other error, return None (unauthenticated)
         return None
 
 
