@@ -211,3 +211,9 @@ test-results/
 
 # Selenium
 selenium_test_run.log
+# Terraform
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl

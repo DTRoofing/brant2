@@ -343,7 +343,6 @@ resource "google_secret_manager_secret_version" "secret_versions" {
 resource "google_cloud_run_v2_job" "db_migrator" {
   name     = "brant-db-migrations"
   location = var.region
-
   # Temporarily disable deletion protection to allow Terraform to destroy and
   # recreate the resource, which was left in a "tainted" state by a
   # previous failed apply. This can be set back to 'true' after a successful apply.
