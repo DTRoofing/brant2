@@ -9,16 +9,11 @@ steps:
   - name: 'python:3.11-slim'
     id: 'quality-gate'
     entrypoint: /bin/sh
-    volumes:
-      - name: 'poetry_cache'
-        path: '/root/.cache/pypoetry'
     args:
       - -c
       - |
         set -e
         pip install poetry pip-audit
-        # Configure poetry to use the cache volume
-        poetry config cache-dir /root/.cache/pypoetry
         poetry install --no-interaction --no-ansi
         
         echo "Running unit tests..."
