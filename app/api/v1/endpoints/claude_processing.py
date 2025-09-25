@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.workers.celery_app import celery_app
-from app.db.session import get_session
+from app.db.session import get_db
 from app.models.document import Document
 from app.schemas.claude_process import ClaudeProcessRequest, TaskResponse
 from app.services.document_service import DocumentService
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def process_with_claude(
     request: ClaudeProcessRequest,
     response: Response,
-    db: AsyncSession = Depends(get_session),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     This endpoint accepts a document ID and triggers the Claude processing task.
