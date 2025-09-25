@@ -37,7 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Verify poppler installation and set PATH
-RUN which pdfinfo && which pdftoppm && which pdftocairo
+RUN ls -la /usr/bin/pdfinfo /usr/bin/pdftoppm /usr/bin/pdftocairo && \
+    /usr/bin/pdfinfo --version && \
+    /usr/bin/pdftoppm -h && \
+    /usr/bin/pdftocairo -h
 ENV POPPLER_PATH=/usr/bin
 ENV PATH="/usr/bin:${PATH}"
 
