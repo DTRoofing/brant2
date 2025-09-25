@@ -6,7 +6,7 @@ import logging
 from typing import Dict, Any
 from sqlalchemy import table, column, String, JSON, select
 
-from app.core.database import async_session
+from app.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ async def get_cost_configuration() -> Dict[str, Any]:
     Falls back to a hardcoded default if the database is unavailable or the config is missing.
     """
     try:
-        async with async_session() as session:
+        async with AsyncSessionLocal() as session:
             cost_configurations_table = table(
                 'cost_configurations',
                 column('key', String),

@@ -1,6 +1,6 @@
 import logging
 from app.workers.celery_app import celery_app
-from app.core.database import SessionLocal
+from app.db.sync_session import SessionLocal
 from app.models.core import Document, ProcessingStatus
 from app.services.claude_service import claude_service
 

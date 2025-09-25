@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from app.models.processing import ProcessingResult, ProcessingStage
 from app.services.pdf_pipeline import pdf_pipeline
 from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
-from app.core.database import get_db
+from app.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.core import Document, ProcessingStatus
 

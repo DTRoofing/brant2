@@ -37,8 +37,9 @@ async def process_with_claude(
     try:
         # Send task to Celery worker
         task = celery_app.send_task(
-            "app.workers.tasks.new_pdf_processing.process_document_task",
-            args=[str(document.id), document.gcs_path, document.filename],
+            "app.workers.tasks.new_pdf_processing.process_pdf_with_pipeline",
+            args=[str(document.id)],
+            kwargs={"processing_options": {"mode": "claude_only"}},
         )
 
         # Set the Location header for the status endpoint
