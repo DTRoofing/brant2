@@ -167,3 +167,10 @@ images:
   - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
   - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:$COMMIT_SHA'
   - '${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_FRONTEND}:$COMMIT_SHA'
+
+# Build options for logging and service account
+options:
+  # Use Cloud Logging only to avoid bucket requirements
+  logging: CLOUD_LOGGING_ONLY
+  # Use a machine type with more memory for faster builds
+  machineType: 'E2_HIGHCPU_8'
