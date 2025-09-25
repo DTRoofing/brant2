@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, Text, ForeignKey, JSON, Enum, Index
+from sqlalchemy import Column, String, Float, DateTime, Text, ForeignKey, JSON, Enum, Index, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -6,6 +6,29 @@ import uuid
 import enum
 
 from .base import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(100), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Add indexes for performance
+    __table_args__ = (
+        Index('ix_user_email', 'email'),
+        Index('ix_user_username', 'username'),
+        Index('ix_user_active', 'is_active'),
+    )
+    
+    # Relationships
+    documents = relationship("Document", back_populates="user")
 
 
 class ProcessingStatus(str, enum.Enum):
@@ -33,9 +56,12 @@ class Document(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
+    gcs_object_name = Column(String(500), nullable=True)  # For GCS storage
     file_size = Column(Float)
+    document_type = Column(String(50), nullable=True)  # For document type classification
     processing_status = Column(Enum(ProcessingStatus), default=ProcessingStatus.PENDING)
     processing_error = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -46,11 +72,13 @@ class Document(Base):
         Index('ix_document_status', 'processing_status'),
         Index('ix_document_created', 'created_at'),
         Index('ix_document_project', 'project_id'),
+        Index('ix_document_user', 'user_id'),
         Index('ix_document_filename', 'filename'),
     )
     
     # Relationships
     project = relationship("Project", back_populates="documents")
+    user = relationship("User", back_populates="documents")
     measurements = relationship("Measurement", back_populates="document")
     processing_results = relationship("ProcessingResults", back_populates="document", uselist=False)
 
