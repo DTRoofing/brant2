@@ -169,6 +169,7 @@ substitutions:
   _SERVICE_NAME_WORKER: 'brant-worker'
   _SERVICE_NAME_FRONTEND: 'brant-frontend'
   _SERVICE_ACCOUNT: 'brant-system-service@${PROJECT_ID}.iam.gserviceaccount.com'
+  _VPC_CONNECTOR: 'brant-vpc-connector'
   # The _API_URL must be set in the trigger. For the first deployment, it can be a placeholder.
   # After the first deployment, set up a Load Balancer and update this variable with its URL.
   _API_URL: 'https://your-api-load-balancer-url.com'

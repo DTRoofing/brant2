@@ -11,6 +11,7 @@ substitutions:
   _SERVICE_NAME_WORKER: 'brant-worker'
   _SERVICE_NAME_FRONTEND: 'brant-frontend'
   _SERVICE_ACCOUNT: 'brant-system-service@brant-roofing-system-2025.iam.gserviceaccount.com'
+  _VPC_CONNECTOR: 'brant-vpc-connector'
   # The _API_URL must be set in the trigger. For the first deployment, it can be a placeholder.
   # After the first deployment, set up a Load Balancer and update this variable with its URL.
   _API_URL: 'https://your-api-load-balancer-url.com'
@@ -89,7 +90,7 @@ steps:
       - '--image=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
       - '--region=${_REGION}'
       - '--service-account=${_SERVICE_ACCOUNT}'
-      - '--vpc-connector=brant-vpc-connector' # Assumes VPC connector is named this
+      - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--ingress=internal-and-cloud-load-balancing' # Allow LB to access the service
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
