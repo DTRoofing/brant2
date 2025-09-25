@@ -11,9 +11,24 @@ from app.services.processing_stages.document_analyzer import DocumentAnalyzer
 from app.services.processing_stages.content_extractor import ContentExtractor
 from app.services.processing_stages.ai_interpreter import AIInterpreter
 from app.services.processing_stages.data_validator import DataValidator
-from app.core.timeline import calculate_timeline_estimate
+# Timeline calculation moved inline
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_timeline_estimate(total_area: float, interpretation_data: dict) -> str:
+    """
+    Calculate processing timeline estimate based on document characteristics.
+    """
+    # Simple timeline calculation based on area
+    if total_area < 1000:
+        return "1-2 days"
+    elif total_area < 3000:
+        return "2-3 days"
+    elif total_area < 5000:
+        return "3-5 days"
+    else:
+        return "5-7 days"
 
 
 class PDFProcessingPipeline:

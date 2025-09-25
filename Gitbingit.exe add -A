@@ -1,0 +1,37 @@
+[33m9e98251[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: Create proper module links instead of creating unnecessary modules
+app/core/pdf_processing.py
+[33m4465fc3[m fix: Add missing CORS_ORIGINS and REDIS_URL to Settings
+app/core/config.py
+[33m7e44dcc[m fix: Add comprehensive missing modules for Cloud Build
+app/core/timeline.py
+app/db/sync_session.py
+app/models/config.py
+app/services/document_service.py
+[33m8b60819[m fix: Add missing claude_process schema module
+app/schemas/claude_process.py
+[33m7028b83[m fix: Correct Document model import path in claude_processing
+app/api/v1/endpoints/claude_processing.py
+[33m1afed7c[m docs: Add monitoring and retrigger scripts for Cloud Build
+CLOUD_RUN_BEST_PRACTICES_AUDIT.md
+MONITOR_REMOTE_BUILD.md
+monitor-build.bat
+monitor-build.sh
+retrigger-build.bat
+retrigger-build.md
+retrigger-build.sh
+[33m9ec6662[m fix: Correct get_session import to get_db in claude_processing
+app/api/v1/endpoints/claude_processing.py
+[33m7140a92[m fix: Correct import paths for celery_app and database session
+app/api/deps.py
+app/api/v1/endpoints/claude_processing.py
+app/api/v1/endpoints/uploads.py
+[33m5720acf[m fix: Resolve FastAPI Pydantic model validation error
+COMPREHENSIVE_BUILD_AUDIT.md
+app/api/v1/endpoints/uploads.py
+app/schemas/document.py
+cloudbuild.yaml
+frontend_ux/package.json
+[33m8aed6a4[m fix: Add missing PyPDF2 dependency
+app/requirements.txt
+pyproject.toml
+requirements.txt

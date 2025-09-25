@@ -7,7 +7,7 @@ from app.workers.celery_app import celery_app
 from app.db.session import get_db
 from app.models.core import Document
 from app.schemas.claude_process import ClaudeProcessRequest, TaskResponse
-from app.services.document_service import DocumentService
+from app.api.v1.endpoints.document_repository import get
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -22,8 +22,8 @@ async def process_with_claude(
     This endpoint accepts a document ID and triggers the Claude processing task.
     It immediately returns a task ID for the client to poll for status.
     """
-    document_service = DocumentService(db)
-    document = await document_service.get_document(request.document_id)
+    # Use existing document repository
+    document = await get(db, str(request.document_id))
 
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
