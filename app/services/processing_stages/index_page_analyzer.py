@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
@@ -275,7 +276,13 @@ class IndexPageAnalyzer:
         """Perform OCR on the first page only"""
         try:
             # Convert only the first page to image
-            images = convert_from_path(file_path, first_page=1, last_page=1, dpi=300)
+            images = convert_from_path(
+                file_path, 
+                first_page=1, 
+                last_page=1, 
+                dpi=300,
+                poppler_path=os.environ.get('POPPLER_PATH', '/usr/bin')
+            )
 
             if not images:
                 logger.warning("No images extracted from first page")

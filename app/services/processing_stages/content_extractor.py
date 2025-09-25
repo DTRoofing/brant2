@@ -93,7 +93,18 @@ class ContentExtractor:
                 # Convert PDF to a list of images (PIL objects) one by one
                 # This is the most memory-intensive step, so we handle it carefully.
                 logger.info("Converting PDF to images for OCR...")
-                images = convert_from_path(file_path, output_folder=temp_path, fmt='jpeg', thread_count=2)
+                
+                # Explicitly set poppler path to ensure pdf2image can find the utilities
+                poppler_path = os.environ.get('POPPLER_PATH', '/usr/bin')
+                logger.info(f"Using poppler path: {poppler_path}")
+                
+                images = convert_from_path(
+                    file_path, 
+                    output_folder=temp_path, 
+                    fmt='jpeg', 
+                    thread_count=2,
+                    poppler_path=poppler_path
+                )
                 self._log_memory_usage("pdf_to_images_complete")
 
                 for i, image_path in enumerate(sorted(os.listdir(temp_path))):

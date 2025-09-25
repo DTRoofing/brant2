@@ -26,8 +26,10 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr-eng \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for poppler
+# Verify poppler installation and set PATH
+RUN which pdfinfo && which pdftoppm && which pdftocairo
 ENV POPPLER_PATH=/usr/bin
+ENV PATH="/usr/bin:${PATH}"
 
 # Create a non-root user and group
 RUN addgroup --system app && adduser --system --group app

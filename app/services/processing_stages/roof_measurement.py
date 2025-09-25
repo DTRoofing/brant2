@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import logging
+import os
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import re
@@ -117,14 +118,26 @@ class RoofMeasurementService:
                 images = []
                 for page_num in relevant_pages[:5]:  # Limit to 5 pages max for memory
                     try:
-                        page_images = convert_from_path(pdf_path, first_page=page_num, last_page=page_num, dpi=200)  # Lower DPI for memory
+                        page_images = convert_from_path(
+                            pdf_path, 
+                            first_page=page_num, 
+                            last_page=page_num, 
+                            dpi=200,
+                            poppler_path=os.environ.get('POPPLER_PATH', '/usr/bin')
+                        )  # Lower DPI for memory
                         if page_images:
                             images.extend(page_images)
                     except Exception as e:
                         logger.warning(f"Failed to convert page {page_num}: {e}")
             else:
                 # Default: convert first 5 pages with lower DPI
-                images = convert_from_path(pdf_path, first_page=1, last_page=5, dpi=200)
+                images = convert_from_path(
+                    pdf_path, 
+                    first_page=1, 
+                    last_page=5, 
+                    dpi=200,
+                    poppler_path=os.environ.get('POPPLER_PATH', '/usr/bin')
+                )
 
             logger.info(f"CV: Converted {len(images)} relevant pages to images")
             
@@ -544,7 +557,12 @@ class RoofMeasurementService:
         
         try:
             # Convert PDF to images
-            images = convert_from_path(pdf_path, first_page=1, last_page=3)
+            images = convert_from_path(
+                pdf_path, 
+                first_page=1, 
+                last_page=3,
+                poppler_path=os.environ.get('POPPLER_PATH', '/usr/bin')
+            )
             logger.info(f"AI: Converted PDF to {len(images)} images")
             
             total_roof_area = 0
