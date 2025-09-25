@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from pathlib import Path
 import json
 
-from app.services.google_services import GoogleCloudService, google_service
+from app.services.google_services import GoogleService, google_service
 
 
-class TestGoogleCloudService:
+class TestGoogleService:
     """Test cases for Google Cloud service integration."""
     
     def test_init_without_credentials(self):
@@ -18,7 +18,7 @@ class TestGoogleCloudService:
             mock_settings.GOOGLE_APPLICATION_CREDENTIALS = None
             mock_settings.GOOGLE_CLOUD_PROJECT_ID = "test-project"
             
-            service = GoogleCloudService()
+            service = GoogleService()
             
             assert service.credentials is None
             assert service._document_ai_client is None
@@ -40,7 +40,7 @@ class TestGoogleCloudService:
             mock_settings.DOCUMENT_AI_LOCATION = "us"
             mock_settings.GOOGLE_CLOUD_STORAGE_BUCKET = "test-bucket"
             
-            service = GoogleCloudService()
+            service = GoogleService()
             
             assert service.credentials == mock_credentials
             mock_service_account.Credentials.from_service_account_file.assert_called_once_with(
@@ -56,7 +56,7 @@ class TestGoogleCloudService:
         with patch('app.services.google_services.settings') as mock_settings:
             mock_settings.GOOGLE_APPLICATION_CREDENTIALS = "/path/to/missing.json"
             
-            service = GoogleCloudService()
+            service = GoogleService()
             
             assert service.credentials is None
             mock_service_account.Credentials.from_service_account_file.assert_not_called()
@@ -68,7 +68,7 @@ class TestGoogleCloudService:
         mock_client = Mock()
         mock_documentai.DocumentProcessorServiceClient.return_value = mock_client
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service.credentials = mock_credentials
         
         # First access should initialize
@@ -93,7 +93,7 @@ class TestGoogleCloudService:
         with patch('app.services.google_services.settings') as mock_settings:
             mock_settings.GOOGLE_CLOUD_PROJECT_ID = "test-project"
             
-            service = GoogleCloudService()
+            service = GoogleService()
             service.credentials = mock_credentials
             service.project_id = "test-project"
             
@@ -112,7 +112,7 @@ class TestGoogleCloudService:
         mock_client = Mock()
         mock_vision.ImageAnnotatorClient.return_value = mock_client
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service.credentials = mock_credentials
         
         client = service.vision_client
@@ -136,7 +136,7 @@ class TestGoogleCloudStorageUpload:
         mock_storage_client.bucket.return_value = mock_bucket
         mock_bucket.blob.return_value = mock_blob
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = mock_storage_client
         service.bucket_name = "test-bucket"
         
@@ -153,7 +153,7 @@ class TestGoogleCloudStorageUpload:
     @pytest.mark.asyncio
     async def test_upload_to_gcs_no_client(self):
         """Test upload when storage client is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = None
         
         result = await service.upload_to_gcs("test.pdf", "dest.pdf")
@@ -165,7 +165,7 @@ class TestGoogleCloudStorageUpload:
         """Test upload when bucket name is not configured."""
         mock_storage_client = Mock()
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = mock_storage_client
         service.bucket_name = None
         
@@ -187,7 +187,7 @@ class TestGoogleCloudStorageUpload:
         mock_bucket.blob.return_value = mock_blob
         mock_blob.upload_from_filename.side_effect = Exception("Upload failed")
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = mock_storage_client
         service.bucket_name = "test-bucket"
         
@@ -216,7 +216,7 @@ class TestGoogleDocumentAI:
         mock_client = Mock()
         mock_client.process_document.return_value = mock_result
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = mock_client
         service.project_id = "test-project"
         service.processor_id = "processor-id"
@@ -233,7 +233,7 @@ class TestGoogleDocumentAI:
     @pytest.mark.asyncio
     async def test_process_document_with_ai_no_client(self, sample_pdf_with_text):
         """Test processing when Document AI client is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = None
         
         result = await service.process_document_with_ai(str(sample_pdf_with_text))
@@ -245,7 +245,7 @@ class TestGoogleDocumentAI:
         """Test processing with missing configuration."""
         mock_client = Mock()
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = mock_client
         service.project_id = None  # Missing project ID
         service.processor_id = "processor-id"
@@ -287,7 +287,7 @@ class TestGoogleDocumentAI:
         mock_client = Mock()
         mock_client.process_document.return_value = mock_result
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = mock_client
         service.project_id = "test-project"
         service.processor_id = "processor-id"
@@ -333,7 +333,7 @@ class TestGoogleDocumentAI:
         mock_client = Mock()
         mock_client.process_document.return_value = mock_result
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = mock_client
         service.project_id = "test-project"
         service.processor_id = "processor-id"
@@ -351,7 +351,7 @@ class TestGoogleDocumentAI:
         mock_client = Mock()
         mock_client.process_document.side_effect = Exception("API Error")
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = mock_client
         service.project_id = "test-project"
         service.processor_id = "processor-id"
@@ -375,7 +375,7 @@ class TestGoogleDocumentAI:
         mock_layout = Mock()
         mock_layout.text_anchor.text_segments = [mock_segment1, mock_segment2]
         
-        service = GoogleCloudService()
+        service = GoogleService()
         document_text = "Hello     World Extra Text"
         
         result = service._get_text_from_layout(mock_layout, document_text)
@@ -391,7 +391,7 @@ class TestGoogleDocumentAI:
         mock_layout = Mock()
         mock_layout.text_anchor.text_segments = [mock_segment]
         
-        service = GoogleCloudService()
+        service = GoogleService()
         document_text = "Hello World"
         
         result = service._get_text_from_layout(mock_layout, document_text)
@@ -423,7 +423,7 @@ class TestGoogleVisionAPI:
         mock_client = Mock()
         mock_client.text_detection.return_value = mock_response
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = mock_client
         
         # Use a dummy file (content doesn't matter for mocked test)
@@ -437,7 +437,7 @@ class TestGoogleVisionAPI:
     @pytest.mark.asyncio
     async def test_analyze_image_with_vision_no_client(self, sample_pdf_with_text):
         """Test image analysis when Vision client is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = None
         
         result = await service.analyze_image_with_vision(str(sample_pdf_with_text))
@@ -453,7 +453,7 @@ class TestGoogleVisionAPI:
         mock_client = Mock()
         mock_client.text_detection.return_value = mock_response
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = mock_client
         
         result = await service.analyze_image_with_vision(str(sample_pdf_with_text))
@@ -467,7 +467,7 @@ class TestGoogleVisionAPI:
         mock_client = Mock()
         mock_client.text_detection.side_effect = Exception("Vision API Error")
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = mock_client
         
         result = await service.analyze_image_with_vision(str(sample_pdf_with_text))

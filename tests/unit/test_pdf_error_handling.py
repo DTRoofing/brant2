@@ -10,7 +10,7 @@ import io
 
 from app.core.pdf_processing import extract_text_from_pdf, async_process_pdf_document
 from app.models.core import Document, ProcessingStatus
-from app.services.google_services import GoogleCloudService
+from app.services.google_services import GoogleService
 
 
 class TestPDFExtractionErrorHandling:
@@ -273,7 +273,7 @@ class TestGoogleServicesErrorHandling:
     @pytest.mark.asyncio
     async def test_upload_to_gcs_client_not_configured(self):
         """Test GCS upload when client is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = None
         
         result = await service.upload_to_gcs("test.pdf", "dest.pdf")
@@ -283,7 +283,7 @@ class TestGoogleServicesErrorHandling:
     @pytest.mark.asyncio
     async def test_upload_to_gcs_bucket_not_configured(self):
         """Test GCS upload when bucket is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = Mock()
         service.bucket_name = None
         
@@ -302,7 +302,7 @@ class TestGoogleServicesErrorHandling:
         mock_bucket.blob.return_value = mock_blob
         mock_blob.upload_from_filename.side_effect = Exception("Network timeout")
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._storage_client = mock_storage_client
         service.bucket_name = "test-bucket"
         
@@ -313,7 +313,7 @@ class TestGoogleServicesErrorHandling:
     @pytest.mark.asyncio
     async def test_document_ai_processing_client_not_configured(self, sample_pdf_with_text):
         """Test Document AI processing when client is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = None
         
         result = await service.process_document_with_ai(str(sample_pdf_with_text))
@@ -323,7 +323,7 @@ class TestGoogleServicesErrorHandling:
     @pytest.mark.asyncio
     async def test_document_ai_processing_missing_config(self, sample_pdf_with_text):
         """Test Document AI processing with missing configuration."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = Mock()
         service.project_id = None  # Missing project ID
         
@@ -337,7 +337,7 @@ class TestGoogleServicesErrorHandling:
         mock_client = Mock()
         mock_client.process_document.side_effect = Exception("API quota exceeded")
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._document_ai_client = mock_client
         service.project_id = "test-project"
         service.processor_id = "processor-id"
@@ -350,7 +350,7 @@ class TestGoogleServicesErrorHandling:
     @pytest.mark.asyncio
     async def test_vision_api_client_not_configured(self, sample_pdf_with_text):
         """Test Vision API when client is not configured."""
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = None
         
         result = await service.analyze_image_with_vision(str(sample_pdf_with_text))
@@ -362,7 +362,7 @@ class TestGoogleServicesErrorHandling:
         """Test Vision API with non-existent file."""
         mock_client = Mock()
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = mock_client
         
         with pytest.raises(FileNotFoundError):
@@ -374,7 +374,7 @@ class TestGoogleServicesErrorHandling:
         mock_client = Mock()
         mock_client.text_detection.side_effect = Exception("Vision API error")
         
-        service = GoogleCloudService()
+        service = GoogleService()
         service._vision_client = mock_client
         
         result = await service.analyze_image_with_vision(str(sample_pdf_with_text))
