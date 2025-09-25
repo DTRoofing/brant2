@@ -39,8 +39,14 @@ class Settings(BaseSettings):
     
     # Database SSL mode. Set to "require" in production, "disable" for local dev.
     DB_SSL_MODE: str = "disable"
-
-     #The Model Version for Claude
+    
+    # CORS Configuration
+    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
+    
+    # Redis Configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
+    # The Model Version for Claude
     CLAUDE_MODEL_VERSION: str = "claude-3-5-sonnet-20240620"
     
     class Config:
