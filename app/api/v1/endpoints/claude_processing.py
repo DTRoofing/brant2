@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Respons
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.celery_app import celery_app
+from app.workers.celery_app import celery_app
 from app.db.session import get_session
 from app.models.document import Document
 from app.schemas.claude_process import ClaudeProcessRequest, TaskResponse

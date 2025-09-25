@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.google_services import google_service
 from app.api.deps import get_current_active_user
-from app.core.database import get_db
+from app.db.session import get_db
 from app.models.core import User, Document, ProcessingStatus
 from app.schemas.document import DocumentRead
 from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
