@@ -18,8 +18,16 @@ RUN poetry config virtualenvs.create false && \
 # This is the final, minimal image that will be deployed.
 FROM python:3.11-slim
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install system dependencies for PDF processing and health checks
+RUN apt-get update && apt-get install -y \
+    curl \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables for poppler
+ENV POPPLER_PATH=/usr/bin
 
 # Create a non-root user and group
 RUN addgroup --system app && adduser --system --group app

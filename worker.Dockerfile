@@ -36,6 +36,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Set environment variables for poppler
+ENV POPPLER_PATH=/usr/bin
+
 # Set the working directory in the container
 WORKDIR /app
 
