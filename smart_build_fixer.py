@@ -118,7 +118,7 @@ class SmartBuildFixer:
                     poppler_fix = """
 # Verify poppler installation and set PATH
 RUN ls -la /usr/bin/pdfinfo /usr/bin/pdftoppm /usr/bin/pdftocairo && \\
-    /usr/bin/pdfinfo --version && \\
+    /usr/bin/pdfinfo -v && \\
     /usr/bin/pdftoppm -h && \\
     /usr/bin/pdftocairo -h
 ENV POPPLER_PATH=/usr/bin
@@ -147,7 +147,7 @@ ENV PATH="/usr/bin:${PATH}"
                     poppler_fix = """
 # Verify poppler installation and set PATH
 RUN ls -la /usr/bin/pdfinfo /usr/bin/pdftoppm /usr/bin/pdftocairo && \\
-    /usr/bin/pdfinfo --version && \\
+    /usr/bin/pdfinfo -v && \\
     /usr/bin/pdftoppm -h && \\
     /usr/bin/pdftocairo -h
 ENV POPPLER_PATH=/usr/bin
