@@ -120,7 +120,6 @@ def main():
     paths = [
         ("/app/uploads", "Upload directory"),
         ("/app/logs", "Logs directory"),
-        ("/app/google-credentials.json", "Google credentials"),
         ("/app/app", "Application code")
     ]
     

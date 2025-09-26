@@ -31,23 +31,9 @@ else
     echo "⚠️  .env file already exists, skipping creation"
 fi
 
-# Create development credentials file (mock)
-if [ ! -f credentials/google-credentials.json ]; then
-    echo "🔑 Creating mock Google credentials for development..."
-    cat > credentials/google-credentials.json << 'EOF'
-{
-  "type": "service_account",
-  "project_id": "dev-project",
-  "private_key_id": "dev-key-id",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nDEV_MOCK_KEY\n-----END PRIVATE KEY-----\n",
-  "client_email": "dev@dev-project.iam.gserviceaccount.com",
-  "client_id": "dev-client-id",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token"
-}
-EOF
-    echo "✅ Mock credentials created for development"
-fi
+# Google Cloud authentication is handled via Workload Identity
+# No credentials file needed - Workload Identity handles authentication
+echo "🔐 Using Workload Identity for Google Cloud authentication"
 
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."

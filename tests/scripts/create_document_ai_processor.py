@@ -5,14 +5,9 @@ import os
 from google.cloud import documentai_v1
 from google.oauth2 import service_account
 
-# Set up credentials
-credentials_path = "google-credentials.json"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-# Load credentials
-credentials = service_account.Credentials.from_service_account_file(
-    credentials_path
-)
+# Google Cloud authentication is handled via Workload Identity
+# No credentials file needed - Workload Identity handles authentication
+credentials = None  # Will use default credentials from Workload Identity
 
 project_id = "brant-roofing-system-2025"
 location = "us"
@@ -20,8 +15,8 @@ location = "us"
 def create_processor():
     """Create an OCR processor"""
     
-    # Create client
-    client = documentai_v1.DocumentProcessorServiceClient(credentials=credentials)
+    # Create client using Workload Identity
+    client = documentai_v1.DocumentProcessorServiceClient()
     
     # The parent resource name
     parent = f"projects/{project_id}/locations/{location}"

@@ -9,13 +9,10 @@ mkdir -p /app/uploads /app/logs
 # Set proper permissions
 chmod 755 /app/uploads /app/logs
 
-# Check for Google credentials
-if [ -f "/app/google-credentials.json" ]; then
-    echo "Google credentials found at /app/google-credentials.json"
-    export GOOGLE_APPLICATION_CREDENTIALS="/app/google-credentials.json"
-else
-    echo "Warning: Google credentials not found at /app/google-credentials.json"
-fi
+# Google Cloud authentication is handled via Workload Identity
+# No credentials file needed - the service account attached to Cloud Run
+# will automatically authenticate with Google Cloud services
+echo "Using Workload Identity for Google Cloud authentication"
 
 # Verify Poppler installation
 if command -v pdftoppm &> /dev/null; then

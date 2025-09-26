@@ -27,18 +27,9 @@ if [ -z "$KEY_FILE" ]; then
 fi
 echo "🔑 Found service account key: $KEY_FILE"
 
-# Copy service account key to google-credentials.json for Docker compatibility.
-# Using 'cp' instead of 'ln -s' for better Windows compatibility.
-echo "📋 Copying service account key to ./google-credentials.json for Docker build..."
-cp "$KEY_FILE" "./google-credentials.json"
-
-# Ensure the copied credentials file is not committed to git
-if [ -f ".gitignore" ] && ! grep -q "^google-credentials.json$" .gitignore; then
-    echo "" >> .gitignore
-    echo "# Copied from secrets/ for Docker build compatibility" >> .gitignore
-    echo "google-credentials.json" >> .gitignore
-    echo "🔒 Ensured google-credentials.json is in .gitignore"
-fi
+# Google Cloud authentication is handled via Workload Identity
+# No credentials file needed - Workload Identity handles authentication
+echo "🔐 Using Workload Identity for Google Cloud authentication"
 
 # Build and start services
 echo "🏗️ Building and starting services..."
