@@ -97,11 +97,24 @@ steps:
       - '--service-account=${_SERVICE_ACCOUNT}'
       - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--ingress=internal-and-cloud-load-balancing' # Allow LB to access the service
-      - '--domain-mapping'
-      - 'api.dtrooftools.com'
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
     waitFor: ['build-and-push-api', 'quality-gate']
+
+  # ------------------------------------------------------------------------------------
+  # 4a. Map Custom Domain to API Service
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'map-api-domain'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'domain-mappings'
+      - 'create'
+      - '--service=${_SERVICE_NAME_API}'
+      - '--domain=api.dtrooftools.com'
+      - '--region=${_REGION}'
+    waitFor: ['deploy-api-to-cloud-run']
 
   # ------------------------------------------------------------------------------------
   # 5. Run Database Migrations (Automated)
@@ -116,7 +129,7 @@ steps:
       - 'brant-db-migrations' # The name of the Cloud Run Job
       - '--region=${_REGION}'
       - '--image=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
-    waitFor: ['deploy-api-to-cloud-run']
+    waitFor: ['map-api-domain']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'run-migrations'
     entrypoint: gcloud
@@ -163,11 +176,24 @@ steps:
       - '--region=${_REGION}'
       - '--platform'
       - 'managed'
-      - '--domain-mapping'
-      - 'dtrooftools.com'
       # This is the public-facing UI, so it must allow unauthenticated requests
       - '--allow-unauthenticated'
     waitFor: ['build-and-push-frontend', 'quality-gate']
+
+  # ------------------------------------------------------------------------------------
+  # 7a. Map Custom Domain to Frontend Service
+  # ------------------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'map-frontend-domain'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'domain-mappings'
+      - 'create'
+      - '--service=${_SERVICE_NAME_FRONTEND}'
+      - '--domain=dtrooftools.com'
+      - '--region=${_REGION}'
+    waitFor: ['deploy-frontend-to-cloud-run']
 
 # List of images to be built and pushed to Artifact Registry.
 images:
