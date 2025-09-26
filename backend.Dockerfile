@@ -46,10 +46,9 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 # This comes after pip install to leverage caching
 COPY --chown=app:app ./app .
 
-# Copy Google Cloud credentials if they exist in the build context.
-# This is primarily for local development. In GCP, use Workload Identity.
-COPY --chown=app:app ./google-credentials.json /app/google-credentials.json
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
+# Google Cloud authentication is handled via Workload Identity
+# No credentials file needed - the service account attached to Cloud Run
+# will automatically authenticate with Google Cloud services
 
 # Switch to the non-root user
 USER app

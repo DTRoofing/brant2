@@ -20,7 +20,8 @@ services:
       - DOCUMENT_AI_LOCATION=${DOCUMENT_AI_LOCATION:-us}
       - ENABLE_DOCUMENT_AI=${ENABLE_DOCUMENT_AI:-true}
       - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/google-credentials.json
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
       # AI Services
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:

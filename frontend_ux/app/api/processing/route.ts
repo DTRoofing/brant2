@@ -5,19 +5,17 @@ import { Storage } from "@google-cloud/storage"
 import { dbUtils, prisma } from "@/lib/database"
 import Anthropic from "@anthropic-ai/sdk"
 
-// Initialize Google Cloud clients
+// Initialize Google Cloud clients using Workload Identity
+// No credentials file needed - Workload Identity handles authentication
 const documentAIClient = new DocumentProcessorServiceClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
 })
 
 const visionClient = new ImageAnnotatorClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
 })
 
 const storage = new Storage({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
 })
 

@@ -77,7 +77,8 @@ services:
     env_file:
       - .env
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,7 +87,8 @@ services:
     volumes:
       - ./app:/app
       # Mount credentials for local development against GCP
-      - ./google-credentials.json:/app/google-credentials.json:ro
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
       - ./.env:/app/.env:ro
 
   frontend-local:
@@ -117,7 +119,8 @@ services:
     env_file:
       - .env
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,7 +129,8 @@ services:
     volumes:
       - ./app:/app
       # Mount credentials for local development against GCP
-      - ./google-credentials.json:/app/google-credentials.json:ro
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
       - ./.env:/app/.env:ro
 
   # ===================================================================
@@ -142,7 +146,8 @@ services:
     environment:
       # This tells the app to fetch secrets from Google Secret Manager and where to find credentials.
       - GCP_PROJECT
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp_credentials.json
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
     depends_on:
       postgres:
         condition: service_healthy
@@ -178,7 +183,8 @@ services:
     environment:
       # This tells the app to fetch secrets from Google Secret Manager and where to find credentials.
       - GCP_PROJECT
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp_credentials.json
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
     depends_on:
       postgres:
         condition: service_healthy

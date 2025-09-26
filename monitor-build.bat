@@ -1,95 +1,72 @@
 @echo off
-REM Cloud Build Monitoring Script for Windows
-REM This script monitors the latest Cloud Build and shows real-time status
+REM Build Monitoring Script for Brant Roofing System
 
-echo 🔍 Monitoring Cloud Build...
-echo ==========================
+set "BUILD_ID=fb55b5e9-cdf7-48e1-a4c0-e70409deb2c9"
+set "PROJECT_ID=brant-roofing-system-2025"
 
-REM Check if gcloud is available
-gcloud --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] gcloud CLI is not available. Please install it first.
-    exit /b 1
-)
-
-REM Check if authenticated
-gcloud auth list --filter=status:ACTIVE --format="value(account)" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] No active gcloud authentication found. Please run 'gcloud auth login' first.
-    exit /b 1
-)
-
-REM Get latest build ID
-echo [INFO] Getting latest build information...
-for /f "tokens=*" %%i in ('gcloud builds list --limit=1 --format="value(id)"') do set BUILD_ID=%%i
-
-if "%BUILD_ID%"=="" (
-    echo [WARNING] No builds found. The build may not have started yet.
-    exit /b 0
-)
-
-echo Latest Build ID: %BUILD_ID%
-
-REM Get build status
-for /f "tokens=*" %%i in ('gcloud builds describe %BUILD_ID% --format="value(status)"') do set STATUS=%%i
-echo Status: %STATUS%
-
-REM Get build details
-for /f "tokens=*" %%i in ('gcloud builds describe %BUILD_ID% --format="value(createTime)"') do set BUILD_TIME=%%i
-for /f "tokens=*" %%i in ('gcloud builds describe %BUILD_ID% --format="value(duration)"') do set DURATION=%%i
-
-echo Created: %BUILD_TIME%
-echo Duration: %DURATION%
-
-REM Handle different statuses
-if "%STATUS%"=="WORKING" (
-    echo [INFO] Build is currently running...
-    echo.
-    echo [INFO] Streaming live logs (Press Ctrl+C to stop):
-    echo ==============================================
-    gcloud builds log --stream %BUILD_ID%
-) else if "%STATUS%"=="SUCCESS" (
-    echo [SUCCESS] Build completed successfully!
-    echo.
-    echo [INFO] Build Summary:
-    echo - Build ID: %BUILD_ID%
-    echo - Status: %STATUS%
-    echo - Duration: %DURATION%
-    echo.
-    echo [INFO] Services should be deployed to Cloud Run
-    echo [INFO] Check your Cloud Run services in the Google Cloud Console
-) else if "%STATUS%"=="FAILURE" (
-    echo [ERROR] Build failed!
-    echo.
-    echo [INFO] Build Summary:
-    echo - Build ID: %BUILD_ID%
-    echo - Status: %STATUS%
-    echo - Duration: %DURATION%
-    echo.
-    echo [INFO] Recent logs:
-    echo =============
-    gcloud builds log %BUILD_ID% --tail=50
-) else if "%STATUS%"=="TIMEOUT" (
-    echo [WARNING] Build timed out!
-    echo.
-    echo [INFO] Build Summary:
-    echo - Build ID: %BUILD_ID%
-    echo - Status: %STATUS%
-    echo - Duration: %DURATION%
-) else if "%STATUS%"=="CANCELLED" (
-    echo [WARNING] Build was cancelled!
-    echo.
-    echo [INFO] Build Summary:
-    echo - Build ID: %BUILD_ID%
-    echo - Status: %STATUS%
-    echo - Duration: %DURATION%
-) else (
-    echo [INFO] Build status: %STATUS%
-)
-
+echo 🔍 Monitoring Build Progress
+echo ============================
+echo Build ID: %BUILD_ID%
+echo Project: %PROJECT_ID%
 echo.
-echo [INFO] To view detailed build information:
-echo gcloud builds describe %BUILD_ID%
 
-echo [INFO] To view all recent builds:
-echo gcloud builds list --limit=5
+:check_status
+echo [%date% %time%] Checking build status...
+
+gcloud builds describe %BUILD_ID% --project=%PROJECT_ID% --format="value(status)" > temp_status.txt 2>nul
+set /p BUILD_STATUS=<temp_status.txt
+del temp_status.txt
+
+if "%BUILD_STATUS%"=="QUEUED" (
+    echo Status: QUEUED - Build is waiting in queue
+    timeout /t 30 /nobreak >nul
+    goto check_status
+)
+
+if "%BUILD_STATUS%"=="WORKING" (
+    echo Status: WORKING - Build is in progress
+    timeout /t 30 /nobreak >nul
+    goto check_status
+)
+
+if "%BUILD_STATUS%"=="SUCCESS" (
+    echo ✅ Status: SUCCESS - Build completed successfully!
+    echo.
+    echo 🎉 DEPLOYMENT SUCCESSFUL!
+    echo All services have been deployed to Cloud Run.
+    echo.
+    echo 📋 Deployed Services:
+    echo - brant-api (Backend API)
+    echo - brant-worker (Background Processing)
+    echo - brant-frontend (Frontend Application)
+    echo.
+    echo 🔗 View build details: https://console.cloud.google.com/cloud-build/builds/%BUILD_ID%?project=%PROJECT_ID%
+    goto end
+)
+
+if "%BUILD_STATUS%"=="FAILURE" (
+    echo ❌ Status: FAILURE - Build failed
+    echo.
+    echo 📋 Build Logs:
+    gcloud builds log %BUILD_ID% --project=%PROJECT_ID%
+    goto end
+)
+
+if "%BUILD_STATUS%"=="TIMEOUT" (
+    echo ⏰ Status: TIMEOUT - Build timed out
+    goto end
+)
+
+if "%BUILD_STATUS%"=="CANCELLED" (
+    echo 🚫 Status: CANCELLED - Build was cancelled
+    goto end
+)
+
+echo Unknown status: %BUILD_STATUS%
+timeout /t 30 /nobreak >nul
+goto check_status
+
+:end
+echo.
+echo Build monitoring complete.
+pause

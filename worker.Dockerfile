@@ -56,10 +56,9 @@ RUN addgroup --system app && adduser --system --group app
 # Copy the rest of the application's code to the working directory
 COPY --chown=app:app ./app/ .
 
-# Copy Google Cloud credentials if they exist in the build context.
-# This is primarily for local development. In GCP, use Workload Identity.
-COPY --chown=app:app ./google-credentials.json /app/google-credentials.json
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
+# Google Cloud authentication is handled via Workload Identity
+# No credentials file needed - the service account attached to Cloud Run
+# will automatically authenticate with Google Cloud services
 
 # Switch to non-root user
 USER app
