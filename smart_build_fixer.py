@@ -265,7 +265,12 @@ ENV PATH="/usr/bin:${PATH}"
                 f.write('''"""
 Compatibility module for PDF processing tasks.
 """
-from .new_pdf_processing import *
+from .new_pdf_processing import (
+    process_pdf_document,
+    process_pdf_with_pipeline,
+    cleanup_failed_documents,
+    generate_processing_report
+)
 from app.services.google_services import google_service
 from app.services.claude_service import claude_service
 

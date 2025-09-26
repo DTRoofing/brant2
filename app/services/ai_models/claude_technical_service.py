@@ -92,7 +92,6 @@ class ClaudeTechnicalService:
             logger.info(f"Processing {document_type} document with Claude AI")
             
             # Simulate processing delay
-            await asyncio.sleep(2.0)
             
             # Mock extracted data structure
             result = ClaudeTechnicalExtractionResult(

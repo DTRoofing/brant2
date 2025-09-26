@@ -10,14 +10,14 @@ import os
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/brant_roofing"
+    DATABASE_URL: str = Field(default="postgresql://user:password@localhost:5432/brant_roofing", description="Database connection URL")
     POSTGRES_DB: str = "brant_roofing"
     POSTGRES_USER: str = "user"
     POSTGRES_PASSWORD: str = "password"
 
     # Redis/Celery
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0", description="Celery broker URL")
+    CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0", description="Celery result backend URL")
 
     # Application
     SECRET_KEY: str = "your-secret-key-change-in-production"
@@ -42,10 +42,10 @@ class Settings(BaseSettings):
     DB_SSL_MODE: str = "disable"
     
     # CORS Configuration
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
+    CORS_ORIGINS: list = Field(default=["http://localhost:3000", "http://localhost:3001"], description="Allowed CORS origins")
     
     # Redis Configuration
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
     
     # The Model Version for Claude
     CLAUDE_MODEL_VERSION: str = "claude-3-5-sonnet-20240620"

@@ -13,7 +13,7 @@ x-api-base: &api-base
     redis:
       condition: service_healthy
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/health"]
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:3001/api/v1/health"]
     interval: 30s
     timeout: 10s
     retries: 5

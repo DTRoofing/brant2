@@ -138,7 +138,6 @@ class YOLOService:
             
             # Simulate YOLO detection
             # In production, this would use actual YOLO inference
-            await asyncio.sleep(1.5)
             
             # Mock detected elements
             detected_elements = self._simulate_detection(
