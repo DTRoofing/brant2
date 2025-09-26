@@ -1,0 +1,27 @@
+{
+    "material_costs_per_sqft": {
+        "asphalt_shingles": 8.0,
+        "metal_roofing": 12.0,
+        "slate_tiles": 20.0,
+        "clay_tiles": 15.0,
+        "wood_shakes": 18.0,
+        "unknown": 8.0
+    },
+    "labor_costs_per_sqft": {
+        "asphalt_shingles": 4.5,
+        "metal_roofing": 6.0,
+        "slate_tiles": 10.0,
+        "clay_tiles": 8.0,
+        "wood_shakes": 9.0,
+        "unknown": 4.5
+    },
+    "overhead_percent": 15.0,
+    "profit_margin_percent": 10.0,
+    "contingency_percent": 5.0,
+    "permit_costs": {
+        "residential": 150.0,
+        "commercial": 500.0
+    },
+    "disposal_costs_per_sqft": 1.5,
+    "waste_factor_percent": 10.0
+}

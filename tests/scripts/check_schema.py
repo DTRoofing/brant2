@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
 def check_schema():
-    database_url = "postgresql://ADMIN:Brant01!@34.63.109.196:5432/postgres?sslmode=require"
+    database_url = os.getenv('DATABASE_URL', 'postgresql://ADMIN:Brant01!@34.63.109.196:5432/postgres?sslmode=require')
     
     print("Checking database schema configuration...")
     print("-" * 50)

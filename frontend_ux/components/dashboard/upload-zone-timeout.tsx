@@ -21,7 +21,7 @@ export function UploadZone() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${process.env.API_HOST_PORT || '3001'}`;
       const response = await fetch(`${apiUrl}/api/v1/health`, {
         signal: controller.signal
       });
@@ -53,7 +53,7 @@ export function UploadZone() {
       const formData = new FormData();
       formData.append('file', files[0]);
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${process.env.API_HOST_PORT || '3001'}`;
       
       // Add timeout
       const controller = new AbortController();

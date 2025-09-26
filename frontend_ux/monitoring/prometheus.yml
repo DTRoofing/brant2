@@ -5,18 +5,18 @@ global:
 scrape_configs:
   - job_name: 'roofing-app'
     static_configs:
-      - targets: ['app:3000']
+      - targets: ['app:${FRONTEND_CONTAINER_PORT:-3000}']
     metrics_path: '/api/metrics'
     scrape_interval: 30s
 
   - job_name: 'postgres'
     static_configs:
-      - targets: ['database:5432']
+      - targets: ['database:${POSTGRES_CONTAINER_PORT:-5432}']
     scrape_interval: 30s
 
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
+      - targets: ['redis:${REDIS_CONTAINER_PORT:-6379}']
     scrape_interval: 30s
 
   - job_name: 'nginx'

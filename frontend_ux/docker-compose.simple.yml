@@ -7,14 +7,14 @@ services:
       dockerfile: Dockerfile.dev
     container_name: brant-frontend
     ports:
-      - "3000:3000"
+      - "${FRONTEND_HOST_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
-      - DATABASE_URL=postgresql://ADMIN:Brant01!@34.63.109.196:5432/postgres?schema=public
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=your-secret-key-here
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - DATABASE_URL=${DATABASE_URL:-postgresql://ADMIN:Brant01!@34.63.109.196:5432/postgres?schema=public}
+      - NEXTAUTH_URL=http://localhost:${FRONTEND_HOST_PORT:-3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-secret-key-here}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:${API_HOST_PORT:-3001}}
     volumes:
       - .:/app
       - /app/node_modules

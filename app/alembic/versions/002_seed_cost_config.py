@@ -14,7 +14,7 @@ import uuid
 
 # revision identifiers, used by Alembic.
 revision = '2b1a8f9c3d0e'
-down_revision = '001_add_processing_results' # Replace with the actual revision ID of your previous migration
+down_revision = '001_add_processing_results'
 branch_labels = None
 depends_on = None
 
@@ -27,8 +27,16 @@ def upgrade() -> None:
     cost_configurations_table = sa.table(
         'cost_configurations',
         sa.column('id', UUID),
-        sa.column('key', sa.String),
-        sa.column('config_data', JSON)
+        sa.column('name', sa.String),
+        sa.column('description', sa.Text),
+        sa.column('base_cost_per_sqft', sa.Float),
+        sa.column('material_cost_multiplier', sa.Float),
+        sa.column('labor_cost_multiplier', sa.Float),
+        sa.column('overhead_multiplier', sa.Float),
+        sa.column('regional_multiplier', sa.Float),
+        sa.column('is_active', sa.Boolean),
+        sa.column('created_at', sa.DateTime),
+        sa.column('updated_at', sa.DateTime)
     )
 
     # Construct the path to the JSON file relative to this script's location
@@ -43,12 +51,20 @@ def upgrade() -> None:
     # Insert the default configuration data into the table
     op.bulk_insert(cost_configurations_table, [{
         'id': str(uuid.uuid4()),
-        'key': 'default',
-        'config_data': config_data
+        'name': 'default',
+        'description': 'Default cost configuration from JSON file',
+        'base_cost_per_sqft': config_data.get('material_costs_per_sqft', {}).get('asphalt_shingles', 8.0),
+        'material_cost_multiplier': 1.0,
+        'labor_cost_multiplier': 1.0,
+        'overhead_multiplier': config_data.get('overhead_percent', 15.0) / 100.0,
+        'regional_multiplier': 1.0,
+        'is_active': True,
+        'created_at': sa.func.now(),
+        'updated_at': sa.func.now()
     }])
 
 def downgrade() -> None:
     """
     Removes the default cost configuration data from the table.
     """
-    op.execute("DELETE FROM cost_configurations WHERE key = 'default'")
+    op.execute("DELETE FROM cost_configurations WHERE name = 'default'")

@@ -12,7 +12,7 @@ from app.api.deps import get_current_active_user
 from app.db.session import get_db
 from app.models.core import User, Document, ProcessingStatus
 from app.schemas.document import DocumentRead
-from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+from app.workers.tasks.pdf_processing import process_pdf_document
 
 
 router = APIRouter()
@@ -117,7 +117,7 @@ async def start_processing(
 
         # 2. Enqueue the background processing task
         processing_options = {"mode": "standard"}  # Use default options for now
-        task = process_pdf_with_pipeline.delay(str(new_document.id), processing_options=processing_options)
+        task = process_pdf_document.delay(str(new_document.id))
         logger.info(f"Enqueued processing for document {new_document.id} (Task ID: {task.id}) from GCS object {request.gcs_object_name}")
 
         return DocumentRead.model_validate(new_document)
@@ -204,7 +204,7 @@ async def upload_document(
         
         # Start processing
         processing_options = {"mode": "standard"}
-        task = process_pdf_with_pipeline.delay(str(new_document.id), processing_options=processing_options)
+        task = process_pdf_document.delay(str(new_document.id))
         logger.info(f"Enqueued processing for document {new_document.id} (Task ID: {task.id})")
         
         return UploadResponse(

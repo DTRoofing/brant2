@@ -1,8 +1,9 @@
 import psycopg2
+import os
 from datetime import datetime
 
 # Connect to database
-conn = psycopg2.connect('postgresql://ADMIN:Brant01!@34.63.109.196:5432/postgres?sslmode=require')
+conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://ADMIN:Brant01!@34.63.109.196:5432/postgres?sslmode=require'))
 cur = conn.cursor()
 
 # Get recent documents

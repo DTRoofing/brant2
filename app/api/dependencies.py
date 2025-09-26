@@ -1,15 +1,7 @@
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession
+"""
+Legacy dependencies file - use app.api.deps instead.
+This file is kept for backward compatibility.
+"""
+from app.api.deps import get_db, get_current_user, get_current_active_user, get_current_superuser
 
-from app.db.session import AsyncSessionLocal
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Dependency to get a new database session for each request.
-    """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
+__all__ = ["get_db", "get_current_user", "get_current_active_user", "get_current_superuser"]

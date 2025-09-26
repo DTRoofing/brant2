@@ -7,7 +7,7 @@ from app.models.processing import DocumentAnalysis, DocumentType
 from app.services.google_services import google_service
 from app.services.claude_service import claude_service
 from app.services.processing_stages.index_page_analyzer import IndexPageAnalyzer
-from app.services.processing_stages.selective_page_extractor import selective_page_extractor
+from app.services.processing_stages.selective_page_extractor import SelectivePageExtractor
 from app.core.config import settings
 
 try:
@@ -27,6 +27,7 @@ class DocumentAnalyzer:
         self.google_service = google_service
         self.claude_service = claude_service
         self.index_analyzer = IndexPageAnalyzer()
+        self.selective_extractor = SelectivePageExtractor()
     
     async def _extract_basic_text(self, file_path: str, specific_pages=None) -> str:
         """Extract basic text for document classification
@@ -94,7 +95,7 @@ class DocumentAnalyzer:
 
             # Check if we should use selective extraction for this document
             processing_file_path = file_path
-            if selective_page_extractor.should_use_extraction(file_path, relevant_pages):
+            if self.selective_extractor.should_use_extraction(file_path, relevant_pages):
                 if file_path.startswith("gs://"):
                     # Handle selective extraction for GCS files
                     downloaded_temp_path = None
@@ -103,7 +104,7 @@ class DocumentAnalyzer:
                         gcs_object_name = file_path[len(f"gs://{settings.GOOGLE_CLOUD_STORAGE_BUCKET}/"):]
                         downloaded_temp_path = self.google_service.download_gcs_to_temp(gcs_object_name)
                         
-                        extracted_temp_path = selective_page_extractor.extract_pages(downloaded_temp_path, relevant_pages)
+                        extracted_temp_path = self.selective_extractor.extract_pages(downloaded_temp_path, relevant_pages)
                         
                         if extracted_temp_path:
                             new_gcs_object_name = self.google_service.upload_temp_to_gcs(extracted_temp_path, gcs_object_name)
@@ -125,7 +126,7 @@ class DocumentAnalyzer:
                                     logger.warning(f"Failed to cleanup temp file {p}: {e}")
                 else: # It's a local file
                     # Extract only relevant pages to a temporary PDF
-                    extracted_pdf = selective_page_extractor.extract_pages(file_path, relevant_pages)
+                    extracted_pdf = self.selective_extractor.extract_pages(file_path, relevant_pages)
                     if extracted_pdf:
                         processing_file_path = extracted_pdf
                         logger.info(f"Using extracted PDF with {len(relevant_pages)} pages instead of full document")

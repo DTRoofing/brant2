@@ -74,8 +74,8 @@ max_attempts=10
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
-    if curl -s -f http://localhost:3001/api/v1/health >/dev/null 2>&1; then
-        print_success "API is healthy at http://localhost:3001"
+    if curl -s -f http://localhost:${API_HOST_PORT:-3001}/api/v1/health >/dev/null 2>&1; then
+        print_success "API is healthy at http://localhost:${API_HOST_PORT:-3001}"
         break
     fi
     
@@ -93,8 +93,8 @@ print_status "Testing frontend..."
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
-    if curl -s -f http://localhost:3000 >/dev/null 2>&1; then
-        print_success "Frontend is accessible at http://localhost:3000"
+    if curl -s -f http://localhost:${FRONTEND_HOST_PORT:-3000} >/dev/null 2>&1; then
+        print_success "Frontend is accessible at http://localhost:${FRONTEND_HOST_PORT:-3000}"
         break
     fi
     
@@ -125,10 +125,10 @@ echo ""
 echo "✅ Development server restart and test completed!"
 echo ""
 echo "Services available at:"
-echo "  - Frontend: http://localhost:3000"
-echo "  - API: http://localhost:3001"
-echo "  - API Docs: http://localhost:3001/docs"
-echo "  - Celery Monitor: http://localhost:5555"
+echo "  - Frontend: http://localhost:${FRONTEND_HOST_PORT:-3000}"
+echo "  - API: http://localhost:${API_HOST_PORT:-3001}"
+echo "  - API Docs: http://localhost:${API_HOST_PORT:-3001}/docs"
+echo "  - Celery Monitor: http://localhost:${FLOWER_HOST_PORT:-5555}"
 echo ""
 echo "To view logs: docker compose --profile local logs -f"
 echo "To stop services: docker compose --profile local down"

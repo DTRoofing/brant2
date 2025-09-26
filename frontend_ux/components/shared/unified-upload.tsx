@@ -184,7 +184,7 @@ export function UnifiedUpload({
       }
       
       // Use the direct API endpoint for upload
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${process.env.API_HOST_PORT || '3001'}`;
       const response = await fetch(`${apiUrl}/api/v1/documents/upload`, {
         method: 'POST',
         body: formData,

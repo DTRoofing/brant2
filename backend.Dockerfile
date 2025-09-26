@@ -47,7 +47,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy the application code
 # This comes after pip install to leverage caching
-COPY --chown=app:app ./app .
+COPY --chown=app:app ./app/ .
 
 # Google Cloud authentication is handled via Workload Identity
 # No credentials file needed - the service account attached to Cloud Run

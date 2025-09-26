@@ -22,10 +22,10 @@ This project uses a `Makefile` for easy setup and management.
    This will check prerequisites, build containers, and start the services.
 
 3. **Access**:
-   - API: <http://localhost:3001>
-   - API Docs: <http://localhost:3001/docs>
-   - Health Check: <http://localhost:3001/api/v1/health>
-   - Celery Monitor: <http://localhost:5555>
+   - API: <http://localhost:${API_HOST_PORT:-3001}>
+   - API Docs: <http://localhost:${API_HOST_PORT:-3001}/docs>
+   - Health Check: <http://localhost:${API_HOST_PORT:-3001}/api/v1/health>
+   - Celery Monitor: <http://localhost:${FLOWER_HOST_PORT:-5555}>
 
 ## 📁 Project Structure
 
@@ -63,7 +63,7 @@ brant/
 
 ## 📚 Documentation
 
-- [API Documentation](http://localhost:3001/docs)
+- [API Documentation](http://localhost:${API_HOST_PORT:-3001}/docs)
 - [GCP Deployment Guide](docs/GCP_DEPLOYMENT.md)
 - [Testing Strategy](docs/INTEGRATION_TESTING_STRATEGY.md)
 

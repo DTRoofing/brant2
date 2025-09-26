@@ -6,14 +6,14 @@ x-api-base: &api-base
     context: .
     dockerfile: backend.Dockerfile
   ports:
-    - "3001:3001" # Expose API port
+    - "${API_HOST_PORT:-3001}:${API_CONTAINER_PORT:-8080}" # Expose API port
   volumes:
     - ./app:/app # Mount application code for hot-reloading
   depends_on:
     redis:
       condition: service_healthy
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://127.0.0.1:3001/api/v1/health"]
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:${API_CONTAINER_PORT:-8080}/api/v1/health"]
     interval: 30s
     timeout: 10s
     retries: 5
@@ -66,7 +66,7 @@ x-frontend-base: &frontend-base
     context: ./frontend_ux
     dockerfile: Dockerfile
   ports:
-    - "3000:3000"
+    - "${FRONTEND_HOST_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
   restart: unless-stopped
 
 services:
@@ -104,7 +104,7 @@ services:
     environment:
       - NODE_ENV=development
       # Provides the backend URL to the frontend container, fixing the hardcoded 'localhost'.
-      - BACKEND_URL=http://api:3001
+      - BACKEND_URL=http://api:${API_CONTAINER_PORT:-8080}
     volumes:
       - ./frontend_ux:/app
       - /app/node_modules
@@ -169,7 +169,7 @@ services:
     environment:
       - NODE_ENV=production
       # The frontend needs to know the backend URL for production.
-      - NEXT_PUBLIC_API_URL=http://api-gcp:3001
+      - NEXT_PUBLIC_API_URL=http://api-gcp:${API_CONTAINER_PORT:-8080}
     depends_on:
       - api-gcp
 
@@ -202,7 +202,7 @@ services:
       POSTGRES_USER: brant_user
       POSTGRES_PASSWORD: brant_password
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:${POSTGRES_CONTAINER_PORT:-5432}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -215,7 +215,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:${REDIS_CONTAINER_PORT:-6379}"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -228,15 +228,15 @@ services:
   flower:
     image: mher/flower
     ports:
-      - "5555:5555"
+      - "${FLOWER_HOST_PORT:-5555}:${FLOWER_CONTAINER_PORT:-5555}"
     environment:
       # Use the internal service name for redis to avoid dependency on a potentially missing .env file.
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:${REDIS_CONTAINER_PORT:-6379}/0
     command:
       - "celery"
       - "flower"
-      - "--broker=redis://redis:6379/0"
-      - "--result_backend=redis://redis:6379/0"
+      - "--broker=redis://redis:${REDIS_CONTAINER_PORT:-6379}/0"
+      - "--result_backend=redis://redis:${REDIS_CONTAINER_PORT:-6379}/0"
     depends_on:
       - redis
     restart: unless-stopped

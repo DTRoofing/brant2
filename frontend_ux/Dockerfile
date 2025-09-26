@@ -30,7 +30,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Expose the port Next.js runs on.
-EXPOSE 3000
+# Uses PORT environment variable (Cloud Run sets this to 8080) or defaults to 3000 for local dev
+EXPOSE ${PORT:-3000}
 
 # Command to start the development server.
 CMD ["npm", "run", "dev"]
@@ -46,12 +47,20 @@ RUN npm run build
 # ---- Release Stage ----
 # This is the final, minimal image for production.
 FROM base AS release
+
+# Create nextjs user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# The Next.js standalone output runs on port 3000 by default.
-EXPOSE 3000
+# Switch to nextjs user
+USER nextjs
+
+# The Next.js standalone output uses PORT environment variable (Cloud Run sets this to 8080) or defaults to 3000
+EXPOSE ${PORT:-3000}
 
 # Command to start the production server.
 CMD ["node", "server.js"]

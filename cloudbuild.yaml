@@ -15,6 +15,8 @@ substitutions:
   # The _API_URL must be set in the trigger. For the first deployment, it can be a placeholder.
   # After the first deployment, set up a Load Balancer and update this variable with its URL.
   _API_URL: 'https://api.dtrooftools.com'
+  _API_DOMAIN: 'api.dtrooftools.com'
+  _FRONTEND_DOMAIN: 'dtrooftools.com'
 
 steps:
   # ------------------------------------------------------------------------------------
@@ -111,7 +113,7 @@ steps:
       - 'domain-mappings'
       - 'create'
       - '--service=${_SERVICE_NAME_API}'
-      - '--domain=api.dtrooftools.com'
+      - '--domain=${_API_DOMAIN}'
       - '--region=${_REGION}'
     waitFor: ['deploy-api-to-cloud-run']
 
@@ -190,7 +192,7 @@ steps:
       - 'domain-mappings'
       - 'create'
       - '--service=${_SERVICE_NAME_FRONTEND}'
-      - '--domain=dtrooftools.com'
+      - '--domain=${_FRONTEND_DOMAIN}'
       - '--region=${_REGION}'
     waitFor: ['deploy-frontend-to-cloud-run']
 

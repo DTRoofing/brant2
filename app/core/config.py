@@ -4,6 +4,17 @@ from typing import Optional
 import logging
 import os
 
+def _get_cors_origins() -> list:
+    """Get CORS origins from environment variables with sensible defaults."""
+    cors_origins = os.getenv("CORS_ORIGINS")
+    if cors_origins:
+        return cors_origins.split(",")
+    
+    # Build default origins using port environment variables
+    frontend_port = os.getenv('FRONTEND_HOST_PORT', '3000')
+    api_port = os.getenv('API_HOST_PORT', '3001')
+    return [f"http://localhost:{frontend_port}", f"http://localhost:{api_port}"]
+
 # --- Google Secret Manager Integration ---
 # This block will only be active if the google-cloud-secret-manager library is installed.
 
@@ -43,7 +54,7 @@ class Settings(BaseSettings):
     
     # CORS Configuration
     CORS_ORIGINS: list = Field(
-        default_factory=lambda: os.getenv("CORS_ORIGINS", "https://dtrooftools.com,https://www.dtrooftools.com,http://localhost:3000,http://localhost:3001").split(","),
+        default_factory=lambda: _get_cors_origins(),
         description="Allowed CORS origins"
     )
     

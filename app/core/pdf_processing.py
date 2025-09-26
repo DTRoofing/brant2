@@ -4,7 +4,7 @@ PDF Processing utilities - wrapper functions for testing compatibility.
 import asyncio
 from typing import Dict, Any
 from app.services.processing_stages.content_extractor import ContentExtractor
-from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+from app.workers.tasks.pdf_processing import process_pdf_document
 
 
 def extract_text_from_pdf(file_path: str) -> str:
@@ -27,11 +27,11 @@ async def async_process_pdf_document(document_id: str) -> Dict[str, Any]:
     """
     try:
         # Import here to avoid circular imports
-        from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+        from app.workers.tasks.pdf_processing import process_pdf_document
         
         # For testing, we'll call the task synchronously
         # In production, this would be handled by Celery workers
-        result = process_pdf_with_pipeline(str(document_id))
+        result = process_pdf_document(str(document_id))
         
         return {
             "status": "success",

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.models.processing import ProcessingResult, ProcessingStage
 from app.services.pdf_pipeline import pdf_pipeline
-from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+from app.workers.tasks.pdf_processing import process_pdf_document
 from app.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.core import Document, ProcessingStatus
@@ -62,7 +62,7 @@ async def start_pipeline_processing(
         }
         
         # Start background processing with options
-        task = process_pdf_with_pipeline.delay(document_id, processing_options=processing_options)
+        task = process_pdf_document.delay(document_id)
         
         return {
             "message": "Pipeline processing started",

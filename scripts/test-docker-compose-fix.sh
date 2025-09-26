@@ -176,8 +176,8 @@ test_api() {
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s -f http://localhost:3001/api/v1/health &> /dev/null; then
-            print_success "API is responding at http://localhost:3001"
+        if curl -s -f http://localhost:${API_HOST_PORT:-3001}/api/v1/health &> /dev/null; then
+            print_success "API is responding at http://localhost:${API_HOST_PORT:-3001}"
             return 0
         fi
         
@@ -199,8 +199,8 @@ test_frontend() {
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s -f http://localhost:3000 &> /dev/null; then
-            print_success "Frontend is responding at http://localhost:3000"
+        if curl -s -f http://localhost:${FRONTEND_HOST_PORT:-3000} &> /dev/null; then
+            print_success "Frontend is responding at http://localhost:${FRONTEND_HOST_PORT:-3000}"
             return 0
         fi
         
@@ -280,9 +280,9 @@ main() {
     echo "✅ Docker Compose fix verification completed!"
     echo ""
     echo "Services should be available at:"
-    echo "  - API: http://localhost:3001"
-    echo "  - Frontend: http://localhost:3000"
-    echo "  - API Docs: http://localhost:3001/docs"
+    echo "  - API: http://localhost:${API_HOST_PORT:-3001}"
+    echo "  - Frontend: http://localhost:${FRONTEND_HOST_PORT:-3000}"
+    echo "  - API Docs: http://localhost:${API_HOST_PORT:-3001}/docs"
     echo ""
     echo "To stop services: docker compose --profile local down"
     echo "To view logs: docker compose --profile local logs -f"

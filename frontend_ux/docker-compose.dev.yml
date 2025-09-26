@@ -12,13 +12,13 @@ services:
       - /app/node_modules
       - /app/.next
     ports:
-      - "3000:3000"
-      - "9229:9229" # Debug port
+      - "${FRONTEND_HOST_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
+      - "${DEBUG_HOST_PORT:-9229}:${DEBUG_CONTAINER_PORT:-9229}" # Debug port
     command: npm run dev
 
   database:
     ports:
-      - "5433:5432" # Different port for development to avoid conflicts
+      - "${POSTGRES_DEV_HOST_PORT:-5433}:${POSTGRES_CONTAINER_PORT:-5432}" # Different port for development to avoid conflicts
     environment:
       - POSTGRES_PASSWORD=postgres # Simple password for development
 

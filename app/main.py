@@ -13,7 +13,7 @@ import time
 from app.core.exceptions import BrantAPIException
 
 from app.core.config import settings
-from app.api.v1.endpoints import health, uploads, pipeline, claude_processing
+from app.api.v1.router import api_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -140,11 +140,8 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Include all the API routers with their specific prefixes
-app.include_router(health.router, prefix="/api/v1", tags=["Health"])
-app.include_router(uploads.router, prefix="/api/v1/documents", tags=["Documents"])
-app.include_router(pipeline.router, prefix="/api/v1/pipeline", tags=["Pipeline"])
-app.include_router(claude_processing.router, prefix="/api/v1/claude", tags=["Claude"])
+# Include the main API router
+app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

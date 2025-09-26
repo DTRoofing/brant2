@@ -8,11 +8,11 @@ services:
       target: runner
     container_name: roofing_app
     ports:
-      - "3000:3000"
+      - "${FRONTEND_HOST_PORT:-3000}:${FRONTEND_CONTAINER_PORT:-3000}"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://app_user:app_password@database:5432/brant_roofing?schema=public
-      - NEXTAUTH_URL=http://localhost:3000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-app_user}:${POSTGRES_PASSWORD:-app_password}@database:${POSTGRES_CONTAINER_PORT:-5432}/${POSTGRES_DB:-brant_roofing}?schema=public}
+      - NEXTAUTH_URL=http://localhost:${FRONTEND_CONTAINER_PORT:-3000}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-default_secret_change_in_production}
       # Google Cloud Configuration
       - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
@@ -34,7 +34,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${FRONTEND_CONTAINER_PORT:-3000}/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -49,7 +49,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:${POSTGRES_CONTAINER_PORT:-5432}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init-scripts:/docker-entrypoint-initdb.d:ro
@@ -68,7 +68,7 @@ services:
     image: redis:7-alpine
     container_name: roofing_redis
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:${REDIS_CONTAINER_PORT:-6379}"
     volumes:
       - redis_data:/data
     networks:
@@ -84,8 +84,8 @@ services:
     image: nginx:alpine
     container_name: roofing_nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
