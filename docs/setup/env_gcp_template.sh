@@ -5,7 +5,8 @@
 
 # REQUIRED: Your Google Cloud Project Configuration
 GOOGLE_CLOUD_PROJECT=your-project-id-here
-GOOGLE_APPLICATION_CREDENTIALS=/secrets/service-account.json
+# Google Cloud authentication handled via Workload Identity
+# No credentials file needed in production
 PROJECT_ID=your-project-id-here
 REGION=us-central1
 

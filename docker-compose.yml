@@ -155,9 +155,8 @@ services:
         condition: service_healthy
     volumes:
       - ./app:/app
-      # Mounts local gcloud credentials to a path accessible by the 'app' user.
-      # You must run 'gcloud auth application-default login' on your host.
-      - ~/.config/gcloud/application_default_credentials.json:/app/gcp_credentials.json:ro
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
 
   frontend-gcp:
     <<: *frontend-base
@@ -192,9 +191,8 @@ services:
         condition: service_healthy
     volumes:
       - ./app:/app
-      # Mounts local gcloud credentials to a path accessible by the 'app' user.
-      # You must run 'gcloud auth application-default login' on your host.
-      - ~/.config/gcloud/application_default_credentials.json:/app/gcp_credentials.json:ro
+      # Google Cloud authentication handled via Workload Identity
+      # No credentials file needed in production
 
   postgres:
     image: postgres:15-alpine

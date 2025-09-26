@@ -41,7 +41,7 @@ Edit `.env.development` with your Google Cloud and Anthropic API credentials:
 
 ```bash
 # Google Cloud Configuration
-GOOGLE_APPLICATION_CREDENTIALS="path/to/your/credentials.json"
+# Authentication handled via Workload Identity in production
 GOOGLE_CLOUD_PROJECT_ID="your-project-id"
 DOCUMENT_AI_PROCESSOR_ID="your-processor-id"
 DOCUMENT_AI_LOCATION="us"

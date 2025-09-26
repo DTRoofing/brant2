@@ -102,7 +102,6 @@ def main():
     env_vars = [
         "DATABASE_URL",
         "CELERY_BROKER_URL",
-        "GOOGLE_APPLICATION_CREDENTIALS",
         "GOOGLE_CLOUD_PROJECT_ID",
         "DOCUMENT_AI_PROCESSOR_ID",
         "ANTHROPIC_API_KEY",

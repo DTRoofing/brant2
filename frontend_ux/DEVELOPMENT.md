@@ -98,7 +98,7 @@ Create `.env.development` with:
 
 ```bash
 # Google Cloud
-GOOGLE_APPLICATION_CREDENTIALS="path/to/credentials.json"
+# Authentication handled via Workload Identity in production
 GOOGLE_CLOUD_PROJECT_ID="your-project-id"
 DOCUMENT_AI_PROCESSOR_ID="your-processor-id"
 DOCUMENT_AI_LOCATION="us"

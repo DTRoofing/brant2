@@ -12,11 +12,8 @@ This project uses a `Makefile` for easy setup and management.
    - A `.env` file configured for your local environment.
 
 2. **Setup**:
-   - Create a `secrets/` directory in the project root if it doesn't exist.
-
-   > **⚠️ IMPORTANT:** The next step is mandatory. If the `google-credentials.json` file is missing, Docker will create an empty directory in its place inside the containers. This will cause the `api` and `worker` services to crash immediately on startup with an `IsADirectoryError`.
-
-   - Place your Google Cloud service account key file in the `secrets/` directory and name it `google-credentials.json`.
+   - Google Cloud authentication is handled via Workload Identity in production.
+   - No credentials files are needed for production deployment.
    - Run the automated setup script:
 
    ```bash
