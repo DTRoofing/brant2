@@ -98,7 +98,7 @@ steps:
       - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--ingress=internal-and-cloud-load-balancing' # Allow LB to access the service
       - '--set-env-vars'
-      - 'GCP_PROJECT=${PROJECT_ID},PORT=8080'
+      - 'GCP_PROJECT=${PROJECT_ID}'
     waitFor: ['build-and-push-api', 'quality-gate']
 
   # ------------------------------------------------------------------------------------
