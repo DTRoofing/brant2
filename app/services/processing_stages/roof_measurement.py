@@ -87,8 +87,8 @@ class RoofMeasurementService:
                 logger.info("Using CV result (high confidence)")
                 return cv_result
                 
-        except Exception as e:
-            logger.error(f"Hybrid measurement failed: {e}")
+        except FileNotFoundError as e:
+            logger.error(f"Required file not found for hybrid measurement: {e}")
             return {
                 'total_roof_area_sqft': 0,
                 'scale_info': None,
@@ -97,7 +97,31 @@ class RoofMeasurementService:
                 'pages_processed': 0,
                 'method': 'failed',
                 'confidence': 0.0,
-                'error': str(e)
+                'error': f"File not found: {str(e)}"
+            }
+        except ValueError as e:
+            logger.error(f"Invalid data for hybrid measurement: {e}")
+            return {
+                'total_roof_area_sqft': 0,
+                'scale_info': None,
+                'measurements': [],
+                'roof_features': [],
+                'pages_processed': 0,
+                'method': 'failed',
+                'confidence': 0.0,
+                'error': f"Invalid data: {str(e)}"
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in hybrid measurement: {e}")
+            return {
+                'total_roof_area_sqft': 0,
+                'scale_info': None,
+                'measurements': [],
+                'roof_features': [],
+                'pages_processed': 0,
+                'method': 'failed',
+                'confidence': 0.0,
+                'error': f"Unexpected error: {str(e)}"
             }
 
     async def _measure_roof_cv(self, pdf_path: str, relevant_pages: list = None) -> Dict[str, Any]:
@@ -256,7 +280,8 @@ class RoofMeasurementService:
                         'feet': real_feet
                     }
             return None
-        except:
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.debug(f"Failed to parse scale info: {e}")
             return None
     
     def _parse_feet_inches(self, feet_inches_str: str) -> float:
@@ -277,7 +302,8 @@ class RoofMeasurementService:
             else:
                 # Just feet
                 return float(feet_inches_str.replace('ft', '').replace('feet', '').strip())
-        except:
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse feet-inches: {e}")
             return 0.0
     
     def _find_scale_line_pixels(self, image: np.ndarray, scale_text: str) -> int:
@@ -438,7 +464,8 @@ class RoofMeasurementService:
             # For now, return mock coordinates
             h, w = image.shape[:2]
             return [(w//4, h//4), (w//2, h//4), (w//2, h//2), (w//4, h//2)]
-        except:
+        except (AttributeError, IndexError) as e:
+            logger.debug(f"Failed to find feature coordinates: {e}")
             return None
     
     def _detect_circular_features(self, image: np.ndarray, scale_info: Optional[Dict]) -> List[Dict[str, Any]]:

@@ -8,16 +8,13 @@ export function UploadZone() {
   const [status, setStatus] = useState("")
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("File input changed");
     if (e.target.files) {
       const fileList = Array.from(e.target.files);
-      console.log("Files selected:", fileList);
       setFiles(fileList);
     }
   }
 
   const testBackendConnection = async () => {
-    console.log("Testing backend connection...");
     setStatus("Testing backend...");
     
     try {
@@ -30,9 +27,7 @@ export function UploadZone() {
       });
       
       clearTimeout(timeoutId);
-      console.log("Health check response:", response.status);
       const data = await response.text();
-      console.log("Health check data:", data);
       setStatus(`Backend connected: ${data}`);
     } catch (error) {
       console.error("Backend test failed:", error);
@@ -41,8 +36,6 @@ export function UploadZone() {
   }
 
   const handleUploadClick = () => {
-    console.log("Upload button clicked!");
-    console.log("Current files:", files);
     setStatus("Upload clicked - check console");
     
     if (files.length === 0) {
@@ -54,7 +47,6 @@ export function UploadZone() {
   }
 
   const doUpload = async () => {
-    console.log("Starting upload...");
     setStatus("Uploading...");
     
     try {
@@ -62,17 +54,13 @@ export function UploadZone() {
       formData.append('file', files[0]);
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      console.log("Sending request to:", `${apiUrl}/api/v1/documents/upload`);
-      console.log("FormData has file:", formData.has('file'));
       
       // Add timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log("Request timed out!");
         controller.abort();
       }, 10000); // 10 second timeout
       
-      console.log("Fetching...");
       const response = await fetch(`${apiUrl}/api/v1/documents/upload`, {
         method: 'POST',
         body: formData,
@@ -84,18 +72,13 @@ export function UploadZone() {
       
       clearTimeout(timeoutId);
       
-      console.log("Response received:", response);
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.log("Error response body:", errorText);
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
       
       const result = await response.json();
-      console.log("Response data:", result);
       
       setStatus(`Success! Document ID: ${result.id}`);
       alert("Upload successful!");
@@ -153,7 +136,7 @@ export function UploadZone() {
           </Button>
           
           <button 
-            onClick={() => console.log("Plain button clicked")}
+            onClick={() => {}}
             className="bg-green-500 text-white px-4 py-2 rounded"
           >
             Test Console Log

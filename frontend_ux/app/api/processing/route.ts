@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { estimateId, documentId, processingType } = body
 
-    console.log("[v0] Starting Google Cloud AI processing:", { estimateId, documentId, processingType })
 
     const document = await prisma.document.findUnique({
       where: { id: documentId },
@@ -68,7 +67,6 @@ async function processDocumentWithAI(documentId: string, filePath: string, proce
     await dbUtils.updateEstimate(estimateId, { status: "PROCESSING" })
 
     if (processingType === "claude_expert" && process.env.ANTHROPIC_API_KEY) {
-      console.log("[v0] Processing document with Claude AI roofing expert...")
 
       // Get file from Google Cloud Storage
       const bucket = storage.bucket(process.env.GOOGLE_CLOUD_STORAGE_BUCKET!)
@@ -201,11 +199,9 @@ Format the response as JSON with this structure:
         confidence: aiResults.claudeExpert.confidence,
       })
 
-      console.log("[v0] Claude AI expert processing completed successfully")
     } else if (processingType === "document_ai" && process.env.ENABLE_DOCUMENT_AI === "true") {
       const processorName = `projects/${process.env.GOOGLE_CLOUD_PROJECT_ID}/locations/${process.env.DOCUMENT_AI_LOCATION || "us"}/processors/${process.env.DOCUMENT_AI_PROCESSOR_ID}`
 
-      console.log("[v0] Using Document AI processor:", processorName)
 
       // Get file from Google Cloud Storage
       const bucket = storage.bucket(process.env.GOOGLE_CLOUD_STORAGE_BUCKET!)
@@ -220,11 +216,9 @@ Format the response as JSON with this structure:
         },
       }
 
-      console.log("[v0] Processing document with Document AI...")
       const [result] = await documentAIClient.processDocument(request)
       const document = result.document
 
-      console.log("[v0] Document AI processing completed, extracting roofing data...")
 
       const aiResults = {
         documentAI: {
@@ -240,8 +234,6 @@ Format the response as JSON with this structure:
       const measurements = extractMeasurements(document, estimateId)
       const lineItems = extractLineItems(document, estimateId)
 
-      console.log("[v0] Extracted measurements:", measurements.length)
-      console.log("[v0] Extracted line items:", lineItems.length)
 
       // Create measurements
       for (const measurement of measurements) {
@@ -259,7 +251,6 @@ Format the response as JSON with this structure:
         confidence: aiResults.documentAI.confidence,
       })
 
-      console.log("[v0] Document AI processing completed successfully")
     } else if (processingType === "vision_ai") {
       const request = {
         image: { source: { gcsImageUri: `gs://${process.env.GOOGLE_CLOUD_STORAGE_BUCKET}/${filePath}` } },
@@ -293,7 +284,6 @@ Format the response as JSON with this structure:
       confidence: 1.0,
     })
 
-    console.log("[v0] Google Cloud AI processing completed for:", documentId)
   } catch (error) {
     console.error("[v0] Google Cloud AI processing failed:", error)
 
@@ -324,7 +314,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Estimate not found" }, { status: 404 })
     }
 
-    console.log("[v0] Fetching processing status for estimate:", estimateId)
 
     return NextResponse.json({
       success: true,

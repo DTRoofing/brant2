@@ -8,18 +8,14 @@ export function UploadZone() {
   const [status, setStatus] = useState("")
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("File input changed");
     if (e.target.files) {
       const fileList = Array.from(e.target.files);
-      console.log("Files selected:", fileList);
       setFiles(fileList);
     }
   }
 
   const handleUploadClick = () => {
-    console.log("Upload button clicked!");
-    console.log("Current files:", files);
-    setStatus("Upload clicked - check console");
+    setStatus("Upload clicked");
     
     if (files.length === 0) {
       alert("No files selected");
@@ -31,7 +27,6 @@ export function UploadZone() {
   }
 
   const doUpload = async () => {
-    console.log("Starting upload...");
     setStatus("Uploading...");
     
     try {
@@ -39,16 +34,13 @@ export function UploadZone() {
       formData.append('file', files[0]);
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      console.log("Sending request to:", `${apiUrl}/api/v1/documents/upload`);
       
       const response = await fetch(`${apiUrl}/api/v1/documents/upload`, {
         method: 'POST',
         body: formData
       });
       
-      console.log("Response status:", response.status);
       const result = await response.json();
-      console.log("Response data:", result);
       
       setStatus(`Success! Document ID: ${result.id}`);
       alert("Upload successful!");
@@ -89,7 +81,7 @@ export function UploadZone() {
         </Button>
         
         <button 
-          onClick={() => console.log("Plain button clicked")}
+          onClick={() => {}}
           className="bg-green-500 text-white px-4 py-2 rounded ml-2"
         >
           Test Console Log
