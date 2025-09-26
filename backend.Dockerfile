@@ -42,6 +42,9 @@ WORKDIR /app
 # Copy installed dependencies from the builder stage
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
+# Copy executables (like uvicorn) from the builder stage
+COPY --from=builder /usr/local/bin /usr/local/bin
+
 # Copy the application code
 # This comes after pip install to leverage caching
 COPY --chown=app:app ./app .

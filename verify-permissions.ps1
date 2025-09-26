@@ -105,30 +105,35 @@ function Check-ProjectPermissions {
     Write-Host "🔨 Cloud Build Configuration:" -ForegroundColor Yellow
     try {
         $cloudBuildMember = $iamPolicy.bindings | Where-Object { $_.role -eq 'roles/cloudbuild.builds.builder' } | Select-Object -ExpandProperty members -First 1
-
         if ($cloudBuildMember -and $cloudBuildMember -like "serviceAccount:*") {
-            Write-Host "   ✅ Cloud Build service account found: $cloudBuildMember" -ForegroundColor Green
-
-            # Check for Cloud Run Admin role for domain mapping
-            $cloudBuildSaEmail = ($cloudBuildMember -split ':')[1]
-            $cloudBuildRoles = $iamPolicy.bindings | Where-Object { $_.members -contains $cloudBuildMember } | Select-Object -ExpandProperty role
-            if ($cloudBuildRoles -contains 'roles/run.admin') {
-                Write-Host "   ✅ Cloud Build SA has 'roles/run.admin' for domain mapping." -ForegroundColor Green
-            }
-            else {
-                Write-Host "   ⚠️  WARNING: Cloud Build SA is missing 'roles/run.admin'. Domain mapping step may fail." -ForegroundColor Red
-            }
-
-            # Check for Secret Manager Secret Accessor role for runtime secrets
-            if ($cloudBuildRoles -contains 'roles/secretmanager.secretAccessor') {
-                Write-Host "   ✅ Cloud Run SA has 'roles/secretmanager.secretAccessor' for runtime secrets." -ForegroundColor Green
-            }
-            else {
-                Write-Host "   ❌ CRITICAL: Cloud Run SA is missing 'roles/secretmanager.secretAccessor'. API service will fail to start." -ForegroundColor Red
-            }
+            Write-Host "   ✅ Default Cloud Build SA found: $cloudBuildMember" -ForegroundColor Green
         } else {
             Write-Host "   ❌ No Cloud Build service account found with 'roles/cloudbuild.builds.builder'" -ForegroundColor Red
         }
+
+        # Verify roles for the specific service account used by Cloud Run services
+        $runServiceAccountEmail = "brant-cloudbuild@brant-roofing-system-2025.iam.gserviceaccount.com"
+        $runServiceAccountMember = "serviceAccount:$runServiceAccountEmail"
+        Write-Host "   ℹ️  Verifying roles for Cloud Run Service Account: $runServiceAccountEmail" -ForegroundColor Cyan
+
+        $runServiceAccountRoles = $iamPolicy.bindings | Where-Object { $_.members -contains $runServiceAccountMember } | Select-Object -ExpandProperty role
+
+        # Check for Cloud Run Admin role (needed for domain mapping)
+        if ($runServiceAccountRoles -contains 'roles/run.admin') {
+            Write-Host "      ✅ Has 'roles/run.admin' for domain mapping." -ForegroundColor Green
+        }
+        else {
+            Write-Host "      ⚠️  WARNING: Missing 'roles/run.admin'. Domain mapping step may fail." -ForegroundColor Red
+        }
+
+        # Check for Secret Manager Secret Accessor role (needed for runtime secrets)
+        if ($runServiceAccountRoles -contains 'roles/secretmanager.secretAccessor') {
+            Write-Host "      ✅ Has 'roles/secretmanager.secretAccessor' for runtime secrets." -ForegroundColor Green
+        }
+        else {
+            Write-Host "      ❌ CRITICAL: Missing 'roles/secretmanager.secretAccessor'. API service will fail to start." -ForegroundColor Red
+        }
+
     } catch {
         Write-Host "   ❌ Error checking Cloud Build permissions: $_" -ForegroundColor Red
     }
