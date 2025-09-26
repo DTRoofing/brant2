@@ -14,7 +14,7 @@ substitutions:
   _VPC_CONNECTOR: 'brant-vpc-connector'
   # The _API_URL must be set in the trigger. For the first deployment, it can be a placeholder.
   # After the first deployment, set up a Load Balancer and update this variable with its URL.
-  _API_URL: 'https://your-api-load-balancer-url.com'
+  _API_URL: 'https://api.dtrooftools.com'
 
 steps:
   # ------------------------------------------------------------------------------------
@@ -97,6 +97,8 @@ steps:
       - '--service-account=${_SERVICE_ACCOUNT}'
       - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--ingress=internal-and-cloud-load-balancing' # Allow LB to access the service
+      - '--domain-mapping'
+      - 'api.dtrooftools.com'
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
     waitFor: ['build-and-push-api', 'quality-gate']
@@ -161,6 +163,8 @@ steps:
       - '--region=${_REGION}'
       - '--platform'
       - 'managed'
+      - '--domain-mapping'
+      - 'dtrooftools.com'
       # This is the public-facing UI, so it must allow unauthenticated requests
       - '--allow-unauthenticated'
     waitFor: ['build-and-push-frontend', 'quality-gate']

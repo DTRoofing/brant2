@@ -134,7 +134,7 @@ Set these in the Cloud Build trigger settings:
 | `_SERVICE_NAME_FRONTEND` | `brant-frontend` | Cloud Run service name for Frontend |
 | `_SERVICE_ACCOUNT` | `brant-system-service@$PROJECT_ID.iam.gserviceaccount.com` | Runtime service account |
 | `_VPC_CONNECTOR` | `brant-vpc-connector` | VPC connector name |
-| `_API_URL` | `https://your-domain.com` | Public API URL (update after LB setup) |
+| `_API_URL` | `https://api.dtrooftools.com` | Public API URL (dtrooftools.com domain) |
 
 ### Phase 5: Secrets Configuration (15 minutes)
 

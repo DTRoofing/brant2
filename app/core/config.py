@@ -42,7 +42,10 @@ class Settings(BaseSettings):
     DB_SSL_MODE: str = "disable"
     
     # CORS Configuration
-    CORS_ORIGINS: list = Field(default=["http://localhost:3000", "http://localhost:3001"], description="Allowed CORS origins")
+    CORS_ORIGINS: list = Field(
+        default_factory=lambda: os.getenv("CORS_ORIGINS", "https://dtrooftools.com,https://www.dtrooftools.com,http://localhost:3000,http://localhost:3001").split(","),
+        description="Allowed CORS origins"
+    )
     
     # Redis Configuration
     REDIS_URL: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")

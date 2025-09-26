@@ -89,7 +89,7 @@ USER app
 ```yaml
 # Add custom domain support
 - '--domain-mapping'
-- 'api.brant-roofing.com'
+- 'api.dtrooftools.com'
 
 # Add traffic splitting for gradual rollouts
 - '--traffic'
@@ -243,7 +243,7 @@ USER app
 3. **Implement Custom Domains**
    ```yaml
    - '--domain-mapping'
-   - 'api.brant-roofing.com'
+   - 'api.dtrooftools.com'
    ```
 
 ---
