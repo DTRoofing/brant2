@@ -98,7 +98,9 @@ steps:
       - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--ingress=internal-and-cloud-load-balancing' # Allow LB to access the service
       - '--set-env-vars'
-      - 'GCP_PROJECT=${PROJECT_ID}'
+      - '^--^GCP_PROJECT=${PROJECT_ID}'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest' # Mounts the 'DATABASE_URL' secret as an environment variable
     waitFor: ['build-and-push-api', 'quality-gate']
 
   # ------------------------------------------------------------------------------------
