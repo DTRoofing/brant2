@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Application
     SECRET_KEY: str = "your-secret-key-change-in-production"
     DEBUG: bool = False
-    PORT: int = 3001
+    PORT: int = Field(default=8080, description="Application port (Cloud Run uses PORT env var)")
     API_KEY: Optional[str] = None
     MAX_FILE_SIZE: int = 209715200  # 200MB
     FAILED_DOC_CLEANUP_HOURS: int = 24  # Hours after which failed documents are cleaned up
