@@ -79,6 +79,7 @@ class Settings(BaseSettings):
                     # Celery
                     "CELERY_BROKER_URL",
                     "CELERY_RESULT_BACKEND",
+                    "REDIS_URL",
                     # Application
                     "SECRET_KEY",
                     "API_KEY",
@@ -87,6 +88,7 @@ class Settings(BaseSettings):
                     "GOOGLE_STUDIO_API_KEY",
                     "GOOGLE_VISION_API_KEY",
                     # GCP Config (managed as secrets for consistency)
+                    "GOOGLE_CLOUD_PROJECT_ID",
                     "GOOGLE_CLOUD_STORAGE_BUCKET",
                     "DOCUMENT_AI_PROCESSOR_ID",
                     "DOCUMENT_AI_LOCATION",

@@ -79,7 +79,7 @@ steps:
       - '--build-arg'
       - 'NEXT_PUBLIC_API_URL=${_API_URL}'
       - '--target'
-      - 'production'
+      - 'release'
       - '--cache=true'
 
   # ------------------------------------------------------------------------------------
