@@ -54,10 +54,10 @@ COPY --chown=app:app ./app .
 USER app
 
 # Expose the port the application runs on
-# This should match the default port used in the CMD instruction for clarity.
-EXPOSE 3001
+# Cloud Run uses the PORT environment variable (defaults to 8080)
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
-  CMD curl -f http://localhost:3001/api/v1/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8080}/api/v1/health || exit 1
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3001}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

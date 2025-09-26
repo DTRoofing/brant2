@@ -24,7 +24,8 @@ export function UploadZone() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch('http://localhost:3001/api/v1/health', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/v1/health`, {
         signal: controller.signal
       });
       
@@ -60,7 +61,8 @@ export function UploadZone() {
       const formData = new FormData();
       formData.append('file', files[0]);
       
-      console.log("Sending request to:", 'http://localhost:3001/api/v1/documents/upload');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      console.log("Sending request to:", `${apiUrl}/api/v1/documents/upload`);
       console.log("FormData has file:", formData.has('file'));
       
       // Add timeout
@@ -71,7 +73,7 @@ export function UploadZone() {
       }, 10000); // 10 second timeout
       
       console.log("Fetching...");
-      const response = await fetch('http://localhost:3001/api/v1/documents/upload', {
+      const response = await fetch(`${apiUrl}/api/v1/documents/upload`, {
         method: 'POST',
         body: formData,
         signal: controller.signal

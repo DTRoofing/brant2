@@ -29,10 +29,10 @@ class Settings(BaseSettings):
     # AI Services
     ANTHROPIC_API_KEY: Optional[str] = None
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
-    GOOGLE_CLOUD_PROJECT_ID: Optional[str] = None
-    DOCUMENT_AI_PROCESSOR_ID: Optional[str] = None
-    DOCUMENT_AI_LOCATION: Optional[str] = None
-    GOOGLE_CLOUD_STORAGE_BUCKET: Optional[str] = None
+    GOOGLE_CLOUD_PROJECT_ID: str = Field(..., description="Required Google Cloud Project ID")
+    DOCUMENT_AI_PROCESSOR_ID: str = Field(..., description="Required Document AI Processor ID")
+    DOCUMENT_AI_LOCATION: str = Field(default="us", description="Document AI Location")
+    GOOGLE_CLOUD_STORAGE_BUCKET: str = Field(..., description="Required Google Cloud Storage Bucket")
     GOOGLE_STUDIO_API_KEY: Optional[str] = None
     ENABLE_GOOGLE_VISION: bool = False
     GOOGLE_VISION_API_KEY: Optional[str] = None
@@ -48,6 +48,24 @@ class Settings(BaseSettings):
     
     # The Model Version for Claude
     CLAUDE_MODEL_VERSION: str = "claude-3-5-sonnet-20240620"
+    
+    @validator('GOOGLE_CLOUD_PROJECT_ID')
+    def validate_project_id(cls, v):
+        if not v or v == "your-project-id-here":
+            raise ValueError("GOOGLE_CLOUD_PROJECT_ID must be set to a valid project ID")
+        return v
+    
+    @validator('DOCUMENT_AI_PROCESSOR_ID')
+    def validate_processor_id(cls, v):
+        if not v or v == "your-processor-id-here":
+            raise ValueError("DOCUMENT_AI_PROCESSOR_ID must be set to a valid processor ID")
+        return v
+    
+    @validator('GOOGLE_CLOUD_STORAGE_BUCKET')
+    def validate_storage_bucket(cls, v):
+        if not v or v == "your-bucket-name-here":
+            raise ValueError("GOOGLE_CLOUD_STORAGE_BUCKET must be set to a valid bucket name")
+        return v
     
     class Config:
         env_file = ".env"

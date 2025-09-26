@@ -2,12 +2,11 @@
 const nextConfig = {
   output: 'standalone',
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    // Temporarily allow builds to succeed even with TypeScript errors.
-    // This should be set back to 'false' once the errors are resolved.
-    ignoreBuildErrors: true,
+    // Enable TypeScript error checking for production builds
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

@@ -38,9 +38,10 @@ export function UploadZone() {
       const formData = new FormData();
       formData.append('file', files[0]);
       
-      console.log("Sending request to:", 'http://localhost:3001/api/v1/documents/upload');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      console.log("Sending request to:", `${apiUrl}/api/v1/documents/upload`);
       
-      const response = await fetch('http://localhost:3001/api/v1/documents/upload', {
+      const response = await fetch(`${apiUrl}/api/v1/documents/upload`, {
         method: 'POST',
         body: formData
       });

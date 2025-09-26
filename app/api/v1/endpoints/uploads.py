@@ -66,8 +66,20 @@ async def generate_signed_url(
             gcs_object_name, request.content_type, request.size
         )
         return SignedURLResponse(upload_url=upload_url, gcs_object_name=gcs_object_name)
+    except ValueError as e:
+        logger.error(f"Invalid request parameters for user {current_user.id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request parameters: {str(e)}",
+        )
+    except PermissionError as e:
+        logger.error(f"Permission denied for user {current_user.id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to generate upload URL.",
+        )
     except Exception as e:
-        logger.error(f"Failed to generate signed URL for user {current_user.id}: {e}", exc_info=True)
+        logger.error(f"Unexpected error generating signed URL for user {current_user.id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not generate upload URL. Please try again later.",
