@@ -38,12 +38,12 @@ steps:
         # We run pytest directly and filter for tests that are NOT marked as
         # 'integration' or 'e2e', as those require a live database.
         # Use --continue-on-collection-errors to handle import issues gracefully
-        # Make test failures non-blocking for now to allow deployment
-        poetry run pytest -m "not integration and not e2e" --continue-on-collection-errors --tb=short || echo "Some tests failed, but continuing with build..."
+        # Fail the build if any tests fail.
+        poetry run pytest -m "not integration and not e2e" --continue-on-collection-errors --tb=short
         
         echo "Scanning for known vulnerabilities in dependencies..."
-        # Run pip-audit but don't fail the build on vulnerabilities
-        pip-audit || echo "Vulnerability scan completed with issues, but continuing build..."
+        # Fail the build if critical vulnerabilities are found.
+        pip-audit
 
   # ------------------------------------------------------------------------------------
   # 1. Build and Push API Service using Kaniko for caching
