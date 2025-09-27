@@ -100,6 +100,24 @@ steps:
       - '^--^GCP_PROJECT=${PROJECT_ID}'
       - '--set-secrets'
       - 'DATABASE_URL=DATABASE_URL:latest' # Mounts the 'DATABASE_URL' secret as an environment variable
+      - '--set-secrets'
+      - 'ANTHROPIC_API_KEY=anthropic-api-key:latest'
+      - '--set-secrets'
+      - 'SECRET_KEY=brant-secret-key:latest'
+      - '--set-secrets'
+      - 'CELERY_BROKER_URL=brant-celery-broker-url:latest'
+      - '--set-secrets'
+      - 'CELERY_RESULT_BACKEND=brant-celery-result-backend:latest'
+      - '--set-secrets'
+      - 'REDIS_URL=brant-redis-url:latest'
+      - '--set-secrets'
+      - 'GOOGLE_CLOUD_PROJECT_ID=brant-google-cloud-project-id:latest'
+      - '--set-secrets'
+      - 'DOCUMENT_AI_PROCESSOR_ID=brant-document-ai-processor-id:latest'
+      - '--set-secrets'
+      - 'GOOGLE_CLOUD_STORAGE_BUCKET=brant-google-cloud-storage-bucket:latest'
+      - '--set-secrets'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=brant-google-application-credentials:latest'
     waitFor: ['build-and-push-api', 'quality-gate']
 
   # ------------------------------------------------------------------------------------
@@ -160,6 +178,26 @@ steps:
       - '--no-ingress' # Worker does not need an ingress endpoint
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest'
+      - '--set-secrets'
+      - 'ANTHROPIC_API_KEY=anthropic-api-key:latest'
+      - '--set-secrets'
+      - 'SECRET_KEY=brant-secret-key:latest'
+      - '--set-secrets'
+      - 'CELERY_BROKER_URL=brant-celery-broker-url:latest'
+      - '--set-secrets'
+      - 'CELERY_RESULT_BACKEND=brant-celery-result-backend:latest'
+      - '--set-secrets'
+      - 'REDIS_URL=brant-redis-url:latest'
+      - '--set-secrets'
+      - 'GOOGLE_CLOUD_PROJECT_ID=brant-google-cloud-project-id:latest'
+      - '--set-secrets'
+      - 'DOCUMENT_AI_PROCESSOR_ID=brant-document-ai-processor-id:latest'
+      - '--set-secrets'
+      - 'GOOGLE_CLOUD_STORAGE_BUCKET=brant-google-cloud-storage-bucket:latest'
+      - '--set-secrets'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=brant-google-application-credentials:latest'
     # The worker depends on the database being migrated successfully.
     waitFor: ['run-migrations']
 

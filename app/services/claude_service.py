@@ -51,4 +51,8 @@ Assistant:
             logger.error(f"Error calling or parsing from Claude API: {e}", exc_info=True)
             raise
 
+# Create both sync and async clients for different use cases
 claude_service = ClaudeService()
+
+# For async operations, we'll use the same client since Anthropic SDK handles async internally
+async_claude_client = claude_service.client if claude_service.client else None
