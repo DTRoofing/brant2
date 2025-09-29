@@ -33,7 +33,7 @@ class ContentExtractor:
                 self.vision_client = vision_v1.ImageAnnotatorClient(client_options=client_options)
                 logger.info("Google Vision API client initialized successfully.")
             except Exception as e:
-                logger.error(f"Failed to initialize Google Vision API client: {e}", exc_info=True)
+                logger.warning(f"Failed to initialize Google Vision API client: {e}")
                 self.vision_api_enabled = False
 
     def _log_memory_usage(self, stage: str):

@@ -76,9 +76,8 @@ services:
     profiles: ["local"] # This is for local .env-based development
     env_file:
       - .env
-    environment:
-      # Google Cloud authentication handled via Workload Identity
-      # No credentials file needed in production
+    # Google Cloud authentication handled via Workload Identity
+    # No credentials file needed in production
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,9 +117,8 @@ services:
     profiles: ["local"] # This is for local .env-based development
     env_file:
       - .env
-    environment:
-      # Google Cloud authentication handled via Workload Identity
-      # No credentials file needed in production
+    # Google Cloud authentication handled via Workload Identity
+    # No credentials file needed in production
     depends_on:
       postgres:
         condition: service_healthy

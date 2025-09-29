@@ -10,11 +10,12 @@ from .base import Base
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)  # Nullable for OAuth users
+    google_id = Column(String(255), unique=True, nullable=True, index=True)  # For Google OAuth
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -25,6 +26,7 @@ class User(Base):
         Index('ix_user_email', 'email'),
         Index('ix_user_username', 'username'),
         Index('ix_user_active', 'is_active'),
+        Index('ix_user_google_id', 'google_id'),
     )
     
     # Relationships
@@ -58,8 +60,7 @@ class Document(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     filename = Column(String(255), nullable=False)
-    file_path = Column(String(500), nullable=False)
-    gcs_object_name = Column(String(500), nullable=True)  # For GCS storage
+    gcs_uri = Column(String(500), nullable=False)  # Always use GCS URI format gs://bucket/path
     file_size = Column(Float)
     document_type = Column(String(50), nullable=True)  # For document type classification
     processing_status = Column(Enum(ProcessingStatus), default=ProcessingStatus.PENDING)

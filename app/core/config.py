@@ -63,6 +63,16 @@ class Settings(BaseSettings):
     
     # The Model Version for Claude
     CLAUDE_MODEL_VERSION: str = "claude-3-5-sonnet-20240620"
+
+    # Google OAuth Configuration
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, description="Google OAuth Client ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, description="Google OAuth Client Secret")
+    GOOGLE_OAUTH_REDIRECT_URI: str = Field(default="http://localhost:3000/auth/callback", description="Google OAuth redirect URI")
+
+    @property
+    def google_oauth_redirect_uri(self) -> str:
+        """Get the Google OAuth redirect URI, supporting both development and production."""
+        return self.GOOGLE_OAUTH_REDIRECT_URI
     
     def validate_required_config(self):
         """Validate required configuration when actually needed"""
@@ -118,6 +128,9 @@ class Settings(BaseSettings):
                     "DOCUMENT_AI_LOCATION",
                     # Google Credentials
                     "GOOGLE_APPLICATION_CREDENTIALS",
+                    # Google OAuth
+                    "GOOGLE_CLIENT_ID",
+                    "GOOGLE_CLIENT_SECRET",
                 }
 
                 # For a production environment, some secrets are non-negotiable.
