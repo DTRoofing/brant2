@@ -114,10 +114,13 @@ steps:
       - '--service-account=${_SERVICE_ACCOUNT}'
       - '--vpc-connector=${_VPC_CONNECTOR}'
       - '--ingress=internal-and-cloud-load-balancing'
+      - '--timeout=900'
+      - '--cpu-throttling'
+      - '--max-instances=10'
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
       - '--set-secrets'
-      - 'DATABASE_URL=brant-database-url:latest'
+      - 'DATABASE_URL=brant-database-url:latest,CELERY_BROKER_URL=brant-celery-broker-url:latest,ANTHROPIC_API_KEY=brant-anthropic-api-key:latest,SECRET_KEY=brant-secret-key:latest'
     waitFor: ['build-and-push-api', 'quality-gate']
 
   # ------------------------------------------------------------------------------------
@@ -181,7 +184,7 @@ steps:
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
       - '--set-secrets'
-      - 'DATABASE_URL=brant-database-url:latest'
+      - 'DATABASE_URL=brant-database-url:latest,CELERY_BROKER_URL=brant-celery-broker-url:latest,ANTHROPIC_API_KEY=brant-anthropic-api-key:latest,SECRET_KEY=brant-secret-key:latest'
     waitFor: ['run-migrations']
 
   # ------------------------------------------------------------------------------------

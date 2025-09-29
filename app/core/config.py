@@ -135,11 +135,16 @@ class Settings(BaseSettings):
 
                 # For a production environment, some secrets are non-negotiable.
                 # If these can't be fetched, the application should fail fast.
+                # But allow graceful degradation for non-critical services
                 critical_secrets = {
                     "DATABASE_URL",
+                    "SECRET_KEY",
+                }
+                
+                # Important but can fallback to defaults
+                important_secrets = {
                     "CELERY_BROKER_URL",
                     "ANTHROPIC_API_KEY",
-                    "SECRET_KEY",
                 }
 
                 gcp_secrets = {}
@@ -157,7 +162,10 @@ class Settings(BaseSettings):
                             if secret_id in critical_secrets:
                                 logging.critical(f"CRITICAL: Could not fetch mandatory secret '{gcp_secret_name}' (for env var '{secret_id}'). Shutting down. Error: {e}")
                                 raise ValueError(f"Missing critical secret: {secret_id}") from e
-                            logging.warning(f"Could not fetch optional secret '{gcp_secret_name}' (for env var '{secret_id}'). Falling back. Error: {e}")
+                            elif secret_id in important_secrets:
+                                logging.error(f"IMPORTANT: Could not fetch secret '{gcp_secret_name}' (for env var '{secret_id}'). Service may be degraded. Error: {e}")
+                            else:
+                                logging.warning(f"Could not fetch optional secret '{gcp_secret_name}' (for env var '{secret_id}'). Falling back. Error: {e}")
                 
                 # GCP secrets take precedence over .env file but not over existing env vars
                 return (init_settings, env_settings, lambda: gcp_secrets, file_secret_settings)
