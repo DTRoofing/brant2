@@ -30,18 +30,19 @@ steps:
       - |
         set -e
         echo "Setting up Python tooling..."
+        # Update pip and setuptools to fix security vulnerabilities
         pip install --upgrade pip poetry pip-audit
-        # Install into the base environment so both pytest and pip-audit see the same site-packages
-        poetry config virtualenvs.create false
-        # Keep lock consistent with pyproject without changing versions
+        
+        echo "Installing dependencies with poetry..."
+        # Ensure lock file is in sync with pyproject.toml after local changes
         poetry lock --no-update
-        # Install runtime + dev dependencies for tests
-        poetry install --with dev --no-interaction --no-ansi
-
-        echo "Running unit tests (excluding integration/e2e)..."
+        poetry install --no-interaction --no-ansi --with dev
+        
+        echo "Running unit tests..."
+        # Run pytest, failing the build on any error.
         poetry run pytest -m "not integration and not e2e" --tb=short
-
-        echo "Scanning dependencies for vulnerabilities (fail only on CRITICAL)..."
+        
+        echo "Scanning for known vulnerabilities in dependencies..."
         # Run pip-audit in the same environment; capture output but don't fail immediately
         set +e
         poetry run pip-audit -f json > /workspace/pip_audit.json 2>/workspace/pip_audit.err
@@ -112,37 +113,11 @@ steps:
       - '--region=${_REGION}'
       - '--service-account=${_SERVICE_ACCOUNT}'
       - '--vpc-connector=${_VPC_CONNECTOR}'
-      - '--ingress=internal-and-cloud-load-balancing' # Allow LB to access the service
+      - '--ingress=internal-and-cloud-load-balancing'
       - '--set-env-vars'
-      - '^--^GCP_PROJECT=${PROJECT_ID}'
+      - 'GCP_PROJECT=${PROJECT_ID}'
       - '--set-secrets'
-<<<<<<< Current (Your changes)
-<<<<<<< Current (Your changes)
-      - 'DATABASE_URL=DATABASE_URL:latest' # Mounts the 'DATABASE_URL' secret as an environment variable
-      - '--set-secrets'
-      - 'ANTHROPIC_API_KEY=anthropic-api-key:latest'
-      - '--set-secrets'
-      - 'SECRET_KEY=brant-secret-key:latest'
-      - '--set-secrets'
-      - 'CELERY_BROKER_URL=brant-celery-broker-url:latest'
-      - '--set-secrets'
-      - 'CELERY_RESULT_BACKEND=brant-celery-result-backend:latest'
-      - '--set-secrets'
-      - 'REDIS_URL=brant-redis-url:latest'
-      - '--set-secrets'
-      - 'GOOGLE_CLOUD_PROJECT_ID=brant-google-cloud-project-id:latest'
-      - '--set-secrets'
-      - 'DOCUMENT_AI_PROCESSOR_ID=brant-document-ai-processor-id:latest'
-      - '--set-secrets'
-      - 'GOOGLE_CLOUD_STORAGE_BUCKET=brant-google-cloud-storage-bucket:latest'
-      - '--set-secrets'
-      - 'GOOGLE_APPLICATION_CREDENTIALS=brant-google-application-credentials:latest'
-=======
-      - 'DATABASE_URL=brant-database-url:latest' # Map to the Secret Manager ID created by Terraform
->>>>>>> Incoming (Background Agent changes)
-=======
-      - 'DATABASE_URL=brant-database-url:latest' # Map to the Secret Manager ID created by Terraform
->>>>>>> Incoming (Background Agent changes)
+      - 'DATABASE_URL=brant-database-url:latest'
     waitFor: ['build-and-push-api', 'quality-gate']
 
   # ------------------------------------------------------------------------------------
@@ -156,7 +131,9 @@ steps:
       - |
         set -e
         gcloud run domain-mappings describe --domain="${_API_DOMAIN}" --region="${_REGION}" \
-          || gcloud run domain-mappings create --service="${_SERVICE_NAME_API}" --domain="${_API_DOMAIN}" --region="${_REGION}"
+          --service="${_SERVICE_NAME_API}" 2>/dev/null || \
+        gcloud run domain-mappings create --domain="${_API_DOMAIN}" --region="${_REGION}" \
+          --service="${_SERVICE_NAME_API}"
     waitFor: ['deploy-api-to-cloud-run']
 
   # ------------------------------------------------------------------------------------
@@ -169,10 +146,11 @@ steps:
       - 'run'
       - 'jobs'
       - 'update'
-      - 'brant-db-migrations' # The name of the Cloud Run Job
+      - 'brant-db-migrations'
       - '--region=${_REGION}'
       - '--image=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
     waitFor: ['map-api-domain']
+    
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'run-migrations'
     entrypoint: gcloud
@@ -180,9 +158,9 @@ steps:
       - 'run'
       - 'jobs'
       - 'execute'
-      - 'brant-db-migrations' # The name of the Cloud Run Job
+      - 'brant-db-migrations'
       - '--region=${_REGION}'
-      - '--wait' # Wait for the job to complete
+      - '--wait'
     waitFor: ['update-migration-job']
 
   # ------------------------------------------------------------------------------------
@@ -199,30 +177,11 @@ steps:
       - '--region=${_REGION}'
       - '--service-account=${_SERVICE_ACCOUNT}'
       - '--vpc-connector=${_VPC_CONNECTOR}'
-      - '--no-ingress' # Worker does not need an ingress endpoint
+      - '--no-ingress'
       - '--set-env-vars'
       - 'GCP_PROJECT=${PROJECT_ID}'
       - '--set-secrets'
-      - 'DATABASE_URL=DATABASE_URL:latest'
-      - '--set-secrets'
-      - 'ANTHROPIC_API_KEY=anthropic-api-key:latest'
-      - '--set-secrets'
-      - 'SECRET_KEY=brant-secret-key:latest'
-      - '--set-secrets'
-      - 'CELERY_BROKER_URL=brant-celery-broker-url:latest'
-      - '--set-secrets'
-      - 'CELERY_RESULT_BACKEND=brant-celery-result-backend:latest'
-      - '--set-secrets'
-      - 'REDIS_URL=brant-redis-url:latest'
-      - '--set-secrets'
-      - 'GOOGLE_CLOUD_PROJECT_ID=brant-google-cloud-project-id:latest'
-      - '--set-secrets'
-      - 'DOCUMENT_AI_PROCESSOR_ID=brant-document-ai-processor-id:latest'
-      - '--set-secrets'
-      - 'GOOGLE_CLOUD_STORAGE_BUCKET=brant-google-cloud-storage-bucket:latest'
-      - '--set-secrets'
-      - 'GOOGLE_APPLICATION_CREDENTIALS=brant-google-application-credentials:latest'
-    # The worker depends on the database being migrated successfully.
+      - 'DATABASE_URL=brant-database-url:latest'
     waitFor: ['run-migrations']
 
   # ------------------------------------------------------------------------------------
@@ -239,7 +198,6 @@ steps:
       - '--region=${_REGION}'
       - '--platform'
       - 'managed'
-      # This is the public-facing UI, so it must allow unauthenticated requests
       - '--allow-unauthenticated'
     waitFor: ['build-and-push-frontend', 'quality-gate']
 
@@ -254,7 +212,9 @@ steps:
       - |
         set -e
         gcloud run domain-mappings describe --domain="${_FRONTEND_DOMAIN}" --region="${_REGION}" \
-          || gcloud run domain-mappings create --service="${_SERVICE_NAME_FRONTEND}" --domain="${_FRONTEND_DOMAIN}" --region="${_REGION}"
+          --service="${_SERVICE_NAME_FRONTEND}" 2>/dev/null || \
+        gcloud run domain-mappings create --domain="${_FRONTEND_DOMAIN}" --region="${_REGION}" \
+          --service="${_SERVICE_NAME_FRONTEND}"
     waitFor: ['deploy-frontend-to-cloud-run']
 
 # List of images to be built and pushed to Artifact Registry.
