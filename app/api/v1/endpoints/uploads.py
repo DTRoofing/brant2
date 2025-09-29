@@ -116,8 +116,9 @@ async def start_processing(
         await db.refresh(new_document)
 
         # 2. Enqueue the background processing task
-        processing_options = {"mode": "standard"}  # Use default options for now
-        task = process_pdf_document.delay(str(new_document.id))
+        processing_options = {"mode": "standard"}
+        from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+        task = process_pdf_with_pipeline.delay(str(new_document.id), processing_options)
         logger.info(f"Enqueued processing for document {new_document.id} (Task ID: {task.id}) from GCS object {request.gcs_object_name}")
 
         return DocumentRead.model_validate(new_document)
@@ -204,7 +205,8 @@ async def upload_document(
         
         # Start processing
         processing_options = {"mode": "standard"}
-        task = process_pdf_document.delay(str(new_document.id))
+        from app.workers.tasks.new_pdf_processing import process_pdf_with_pipeline
+        task = process_pdf_with_pipeline.delay(str(new_document.id), processing_options)
         logger.info(f"Enqueued processing for document {new_document.id} (Task ID: {task.id})")
         
         return UploadResponse(

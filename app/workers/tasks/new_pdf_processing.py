@@ -106,7 +106,7 @@ class PipelineTask(Task):
 
 
 def _set_document_processing_status(document_id: str) -> Optional[str]:
-    """Helper to set a document's status to PROCESSING and return its file path."""
+    """Helper to set a document's status to PROCESSING and return its GCS object name."""
     if not SessionLocal:
         raise RuntimeError("Database session not initialized")
     with SessionLocal() as db:
@@ -122,9 +122,9 @@ def _set_document_processing_status(document_id: str) -> Optional[str]:
 
         document.processing_status = ProcessingStatus.PROCESSING
         document.processing_error = None
-        file_path_str = document.file_path
+        gcs_object_name = document.gcs_object_name
         db.commit()
-        return file_path_str
+        return gcs_object_name
 
 
 def _save_pipeline_results(document_id: str, result: Any):
@@ -321,7 +321,9 @@ def process_pdf_with_pipeline(self, document_id: str, processing_options: Option
         doc = db.query(Document).filter(Document.id == uuid.UUID(document_id)).first()
         if not doc:
             raise ValueError(f"Document {document_id} not found for pipeline.")
-        gcs_object_name = doc.file_path
+        if not doc.gcs_object_name:
+            raise ValueError(f"Document {document_id} missing gcs_object_name for pipeline.")
+        gcs_object_name = doc.gcs_object_name
     return _execute_pipeline_task(self, document_id, gcs_object_name, processing_mode)
 
 
@@ -413,5 +415,7 @@ def process_document_with_claude_direct(self, document_id: str):
         doc = db.query(Document).filter(Document.id == uuid.UUID(document_id)).first()
         if not doc:
             raise ValueError(f"Document {document_id} not found for claude_only pipeline.")
-        gcs_object_name = doc.file_path
+        if not doc.gcs_object_name:
+            raise ValueError(f"Document {document_id} missing gcs_object_name for claude_only pipeline.")
+        gcs_object_name = doc.gcs_object_name
     return _execute_pipeline_task(self, document_id, gcs_object_name, processing_mode="claude_only")

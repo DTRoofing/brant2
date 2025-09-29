@@ -15,6 +15,4 @@ async def get(db: AsyncSession, id: str) -> Optional[Document]:
     logger.debug(f"Fetching document with id: {id}")
     result = await db.execute(select(Document).filter(Document.id == id))
     document = result.scalars().first()
-    if document and document.file_path:
-        document.file_path = Path(document.file_path) # Ensure it's a Path object
     return document
