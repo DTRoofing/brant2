@@ -13,7 +13,7 @@ const nextConfig = {
   },
   experimental: {
     // Enable server components
-    serverComponentsExternalPackages: ['@prisma/client', '@google-cloud/documentai', '@google-cloud/vision', '@google-cloud/storage']
+    serverComponentsExternalPackages: ['@prisma/client']
   },
   // Increase server request size limit
   serverRuntimeConfig: {
