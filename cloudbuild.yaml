@@ -25,6 +25,9 @@ steps:
   - name: 'python:3.11-slim'
     id: 'quality-gate'
     entrypoint: /bin/sh
+    volumes:
+      - name: 'poetry_cache'
+        path: '/root/.cache/pypoetry'
     args:
       - -c
       - |
@@ -69,6 +72,7 @@ steps:
     id: 'build-and-push-api'
     args:
       - '--destination=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:$COMMIT_SHA'
+      - '--destination=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_API}:latest'
       - '--context=.'
       - '--dockerfile=backend.Dockerfile'
       - '--cache=true'
@@ -80,6 +84,7 @@ steps:
     id: 'build-and-push-worker'
     args:
       - '--destination=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:$COMMIT_SHA'
+      - '--destination=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_WORKER}:latest'
       - '--context=.'
       - '--dockerfile=worker.Dockerfile'
       - '--cache=true'
@@ -91,6 +96,7 @@ steps:
     id: 'build-and-push-frontend'
     args:
       - '--destination=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_FRONTEND}:$COMMIT_SHA'
+      - '--destination=${_GCR_HOSTNAME}/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME_FRONTEND}:latest'
       - '--context=./frontend_ux'
       - '--dockerfile=./frontend_ux/Dockerfile'
       - '--build-arg'
