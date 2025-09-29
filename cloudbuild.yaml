@@ -48,28 +48,18 @@ steps:
         AUDIT_EXIT=$?
         set -e
         # Evaluate audit results to fail only on CRITICAL severity
-        python - << 'PY'
-import json, sys
-from pathlib import Path
-p = Path('/workspace/pip_audit.json')
-if not p.exists():
-    print('pip-audit output missing; proceeding without failing.')
-    sys.exit(0)
-data = json.loads(p.read_text() or '{}')
-# pip-audit JSON formats vary; normalize
-vulns = []
-if isinstance(data, dict) and 'dependencies' in data:
-    for dep in data.get('dependencies', []):
-        for v in dep.get('vulns', []):
-            vulns.append(v)
-elif isinstance(data, list):
-    vulns = data
-critical = [v for v in vulns if str(v.get('severity', '')).upper() == 'CRITICAL']
-if critical:
-    print(f"Found {len(critical)} CRITICAL vulnerabilities; failing build.")
-    sys.exit(1)
-print('No CRITICAL vulnerabilities found; continuing.')
-PY
+        if [ -f /workspace/pip_audit.json ]; then
+          echo "Checking for CRITICAL vulnerabilities..."
+          if grep -q '"severity": "HIGH"' /workspace/pip_audit.json || grep -q '"severity": "CRITICAL"' /workspace/pip_audit.json; then
+            echo "HIGH or CRITICAL vulnerabilities found in pip-audit results"
+            cat /workspace/pip_audit.json
+            exit 1
+          else
+            echo "No CRITICAL vulnerabilities found; continuing."
+          fi
+        else
+          echo "pip-audit output missing; proceeding without failing."
+        fi
 
   # ------------------------------------------------------------------------------------
   # 1. Build and Push API Service using Kaniko for caching
