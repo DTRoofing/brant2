@@ -12,7 +12,10 @@ asyncpg==0.29.0
 
 # Background tasks
 celery[redis]==5.3.4
-redis==5.0.1
+redis==4.6.0
+
+# Google Cloud Memorystore
+google-cloud-redis==2.15.0
 
 # File handling
 python-multipart==0.0.6

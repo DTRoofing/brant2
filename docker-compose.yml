@@ -229,7 +229,13 @@ services:
       - "${FLOWER_HOST_PORT:-5555}:${FLOWER_CONTAINER_PORT:-5555}"
     environment:
       # Use the internal service name for redis to avoid dependency on a potentially missing .env file.
+      # These will be overridden by Memorystore if USE_MEMORYSTORE=true
       - CELERY_BROKER_URL=redis://redis:${REDIS_CONTAINER_PORT:-6379}/0
+      
+      # Memorystore Configuration
+      - USE_MEMORYSTORE=${USE_MEMORYSTORE:-false}
+      - MEMORYSTORE_REGION=${MEMORYSTORE_REGION:-us-central1}
+      - MEMORYSTORE_INSTANCE_NAME=${MEMORYSTORE_INSTANCE_NAME:-brant-redis-instance}
     command:
       - "celery"
       - "flower"

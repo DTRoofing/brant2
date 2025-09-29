@@ -247,15 +247,12 @@ resource "google_sql_user" "user" {
 }
 
 # 4. Memorystore for Redis instance
-resource "google_redis_instance" "redis" {
-  name               = "brant-redis-instance"
-  # STANDARD_HA provides a replica and automatic failover for high availability.
-  tier               = "STANDARD_HA"
-  memory_size_gb     = 1
-  region             = var.region
-  authorized_network = google_compute_network.vpc_network.id
-  depends_on         = [google_service_networking_connection.private_vpc_connection]
-}
+# Note: This is now defined in memorystore.tf for better organization
+# The instance is created with enhanced configuration including:
+# - Security settings (AUTH enabled, transit encryption)
+# - Monitoring and alerting
+# - IAM bindings for Cloud Run service account
+# - Backup and maintenance policies
 
 # 6. Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "repo" {
@@ -323,8 +320,8 @@ resource "google_secret_manager_secret" "secrets" {
 resource "google_secret_manager_secret_version" "secret_versions" {
   for_each = {
     "brant-database-url"                  = "postgresql+asyncpg://${var.db_user}:${local.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${var.db_name}"
-    "brant-celery-broker-url"             = "redis://${google_redis_instance.redis.host}:6379/0"
-    "brant-celery-result-backend"         = "redis://${google_redis_instance.redis.host}:6379/0"
+    "brant-celery-broker-url"             = "redis://${google_redis_instance.brant_redis.host}:6379/0"
+    "brant-celery-result-backend"         = "redis://${google_redis_instance.brant_redis.host}:6379/0"
     "brant-google-cloud-storage-bucket"   = google_storage_bucket.uploads_bucket.name
     "brant-anthropic-api-key"             = "placeholder-update-in-gcp-console"
     "brant-secret-key"                    = "placeholder-update-in-gcp-console-with-openssl-rand-hex-32"

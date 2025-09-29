@@ -13,10 +13,12 @@ logger = logging.getLogger(__name__)
 # --- BEST PRACTICE: Centralized Redis Client ---
 # In a production application, this client should be initialized once and shared,
 # for example, in `app/db/session.py` or a dedicated `app/core/redis.py`.
+# Uses Memorystore if enabled, otherwise falls back to local Redis.
 try:
-    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=False) # Store bytes
+    redis_url = settings.get_redis_url()
+    redis_client = redis.from_url(redis_url, decode_responses=False) # Store bytes
     redis_client.ping()
-    logger.info("Successfully connected to Redis for caching.")
+    logger.info(f"Successfully connected to Redis for caching: {redis_url}")
 except Exception as e:
     logger.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
     redis_client = None

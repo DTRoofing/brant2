@@ -2,11 +2,11 @@ from celery import Celery
 from app.core.config import settings
 
 # The Celery app instance is configured with the broker and backend URLs from settings.
-# It's also configured to automatically discover tasks in the specified modules.
+# It uses Memorystore if enabled, otherwise falls back to local Redis.
 celery_app = Celery(
     "tasks",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    broker=settings.get_celery_broker_url(),
+    backend=settings.get_celery_result_backend_url(),
     include=[
         "app.workers.tasks.new_pdf_processing",
         "app.workers.document_processor",
