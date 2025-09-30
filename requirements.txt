@@ -48,3 +48,7 @@ google-cloud-secret-manager==2.19.0
 tenacity==8.2.3
 psutil==5.9.8
 slowapi==0.1.9
+PyJWT==2.10.1
+Authlib==1.6.4
+email-validator==2.3.0
+httpx==0.25.2
