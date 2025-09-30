@@ -84,7 +84,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./app:/app
+      - ./app:/app/app
       # Mount credentials for local development against GCP
       # Google Cloud authentication handled via Workload Identity
       # No credentials file needed in production
@@ -102,6 +102,7 @@ services:
       - .env
     environment:
       - NODE_ENV=development
+      - PORT=${FRONTEND_CONTAINER_PORT:-3000}
       # Provides the backend URL to the frontend container, fixing the hardcoded 'localhost'.
       - BACKEND_URL=http://api:${API_CONTAINER_PORT:-8080}
     volumes:
@@ -125,7 +126,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./app:/app
+      - ./app:/app/app
       # Mount credentials for local development against GCP
       # Google Cloud authentication handled via Workload Identity
       # No credentials file needed in production
