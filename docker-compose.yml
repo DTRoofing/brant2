@@ -8,7 +8,7 @@ x-api-base: &api-base
   ports:
     - "${API_HOST_PORT:-3001}:${API_CONTAINER_PORT:-8080}" # Expose API port
   volumes:
-    - ./app:/app # Mount application code for hot-reloading
+    - ./app:/app/app # Mount application code beneath /app to preserve package path
   depends_on:
     redis:
       condition: service_healthy
@@ -36,7 +36,7 @@ x-worker-base: &worker-base
     context: .
     dockerfile: worker.Dockerfile
   volumes:
-    - ./app:/app # Mount application code for hot-reloading
+    - ./app:/app/app # Mount application code beneath /app to preserve package path
   depends_on:
     redis:
       condition: service_healthy
