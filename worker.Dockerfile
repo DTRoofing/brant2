@@ -54,7 +54,9 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 RUN addgroup --system app && adduser --system --group app
 
 # Copy the rest of the application's code to the working directory
-COPY --chown=app:app ./app/ .
+# Preserve Python package layout and ensure Celery entrypoint is present
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --chown=app:app ./app /app/app
 
 # Google Cloud authentication is handled via Workload Identity
 # No credentials file needed - the service account attached to Cloud Run
