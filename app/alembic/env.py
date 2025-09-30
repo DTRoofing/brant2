@@ -5,7 +5,7 @@ import asyncio
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import async_engine_from_config, create_async_engine
 from alembic import context
 import os
 import sys
@@ -37,7 +37,11 @@ target_metadata = Base.metadata
 
 def get_url():
     """Get database URL from settings."""
-    return settings.DATABASE_URL
+    # Ensure async driver for Alembic
+    url = str(settings.DATABASE_URL)
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
 
 
 def run_migrations_offline() -> None:
@@ -77,11 +81,8 @@ async def run_async_migrations() -> None:
 
     """
 
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    # Build engine directly from settings to avoid relying on alembic.ini sqlalchemy.url
+    connectable = create_async_engine(get_url(), poolclass=pool.NullPool)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
