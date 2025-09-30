@@ -178,8 +178,9 @@ async def upload_document(
             )
         
         # Create upload directory if it doesn't exist
-        upload_dir = Path("uploads")
-        upload_dir.mkdir(exist_ok=True)
+        # Use a container-writable temp directory
+        upload_dir = Path("/tmp/uploads")
+        upload_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate unique filename
         file_id = str(uuid.uuid4())
