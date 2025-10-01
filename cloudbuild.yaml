@@ -25,9 +25,6 @@ steps:
   - name: 'python:3.11-slim'
     id: 'quality-gate'
     entrypoint: /bin/sh
-    volumes:
-      - name: 'poetry_cache'
-        path: '/root/.cache/pypoetry'
     args:
       - -c
       - |
